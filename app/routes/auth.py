@@ -12,7 +12,10 @@ from app.models.cliente import Cliente
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email 
 # 🔐 Carregar SECRET_KEY do ambiente
+
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("🚨 ERRO: SECRET_KEY não encontrada nas variáveis de ambiente.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 RESET_TOKEN_EXPIRE_MINUTES = 30
