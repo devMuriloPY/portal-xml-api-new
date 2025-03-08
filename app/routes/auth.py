@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -58,7 +58,7 @@ def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
     contador.senha_hash = gerar_hash_senha(dados.senha)
     db.commit()
 
-    return {"status": "Senha cadastrada com sucesso!"}
+    return Response(content="Senha cadastrada com sucesso!", status_code=201)
 
 # 📌 Endpoint para Login
 @router.post("/login")
@@ -151,9 +151,8 @@ def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get
         """
     )
 
-    return {"mensagem": "E-mail de redefinição enviado com sucesso"}
-
-
+    
+    return Response(content="E-mail de redefinição enviado com sucesso", status_code=200)
 # Modelo de entrada para redefinir senha
 class RedefinirSenha(BaseModel):
     token: str
