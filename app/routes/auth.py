@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -40,10 +41,9 @@ class LoginSchema(BaseModel):
     cnpj: str
     senha: str
 
-# 📌 Endpoint para Primeiro Acesso (Criação de Senha)
+
 @router.post("/primeiro-acesso")
 def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
-    # 🔍 Buscar o CNPJ exatamente como está no banco (com máscara)
     contador = db.query(Contador).filter(Contador.cnpj == dados.cnpj).first()
 
     if not contador:
@@ -58,7 +58,8 @@ def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
     contador.senha_hash = gerar_hash_senha(dados.senha)
     db.commit()
 
-    return Response(content="Senha cadastrada com sucesso!", status_code=201)
+    return JSONResponse(content={"message": "Senha cadastrada com sucesso!"}, status_code=201)
+
 
 # 📌 Endpoint para Login
 @router.post("/login")
