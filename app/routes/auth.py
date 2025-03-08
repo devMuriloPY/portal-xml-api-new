@@ -14,8 +14,6 @@ from app.utils.email_utils import enviar_email
 # 🔐 Carregar SECRET_KEY do ambiente
 
 SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-    raise ValueError("🚨 ERRO: SECRET_KEY não encontrada nas variáveis de ambiente.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 RESET_TOKEN_EXPIRE_MINUTES = 30
@@ -123,31 +121,33 @@ def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Ses
 class SolicitarRedefinicao(BaseModel):
     email: EmailStr
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")  # Define o link do frontend
+
 # Endpoint para solicitar redefinição de senha
 @router.post("/solicitar-redefinicao")
+# Criar link de redefinição apontando para o frontend
 def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get_db)):
     contador = db.query(Contador).filter(Contador.email == dados.email).first()
 
     if not contador:
         raise HTTPException(status_code=404, detail="E-mail não encontrado")
 
-    # Gerar um token de redefinição de senha (válido por 30 minutos)
-    expiracao = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+    # Gerar token JWT válido por 30 minutos
+    expiracao = datetime.utcnow() + timedelta(minutes=30)
     token_redefinicao = jwt.encode({"sub": contador.email, "exp": expiracao}, SECRET_KEY, algorithm=ALGORITHM)
 
-    # Criar link de redefinição de senha
-    url_base = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    link_redefinicao = f"{url_base}/redefinir-senha?token={token_redefinicao}"
+    # Criar o link para a página do frontend
+    link_redefinicao = f"{FRONTEND_URL}/redefinir-senha?token={token_redefinicao}"
 
-    # Enviar o e-mail com o link de redefinição
+    # Enviar e-mail
     enviar_email(
         destinatario=contador.email,
         assunto="Redefinição de Senha",
         corpo=f"""
         <p>Olá, {contador.nome},</p>
-        <p>Recebemos uma solicitação para redefinir sua senha. Clique no link abaixo para definir uma nova senha:</p>
+        <p>Você solicitou a redefinição de senha. Clique no link abaixo para redefinir:</p>
         <p><a href="{link_redefinicao}">Redefinir Senha</a></p>
-        <p>Se você não solicitou essa alteração, ignore este e-mail.</p>
+        <p>O link expira em 30 minutos.</p>
         """
     )
 
