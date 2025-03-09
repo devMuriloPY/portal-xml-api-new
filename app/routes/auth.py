@@ -87,9 +87,12 @@ def login(dados: LoginSchema, db: Session = Depends(get_db)):
 # 📌 Função para Validar Token JWT
 def obter_contador_logado(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        cnpj = payload.get("sub")
+        print(f"🔍 Token recebido: {token}")  # ✅ Verifica se o token está chegando
 
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        print(f"🔍 Payload decodificado: {payload}")  # ✅ Mostra os dados do token
+
+        cnpj = payload.get("sub")
         if cnpj is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
 
