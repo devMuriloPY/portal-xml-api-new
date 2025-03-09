@@ -12,8 +12,9 @@ from app.models.contador import Contador
 from app.models.cliente import Cliente
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email 
-# 🔐 Carregar SECRET_KEY do ambiente
+from app.utils.cnpj_mask import formatar_cnpj  # Importa a função
 
+# 🔐 Carregar SECRET_KEY do ambiente
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -42,9 +43,11 @@ class LoginSchema(BaseModel):
     senha: str
 
 
+
 @router.post("/primeiro-acesso")
 def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
-    contador = db.query(Contador).filter(Contador.cnpj == dados.cnpj).first()
+    cnpj_formatado = formatar_cnpj(dados.cnpj)  # 🔹 Aplica a formatação antes de buscar no banco
+    contador = db.query(Contador).filter(Contador.cnpj == cnpj_formatado).first()
 
     if not contador:
         raise HTTPException(status_code=404, detail="CNPJ não encontrado")
@@ -59,7 +62,6 @@ def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
     db.commit()
 
     return JSONResponse(content={"message": "Senha cadastrada com sucesso!"}, status_code=201)
-
 
 # 📌 Endpoint para Login
 @router.post("/login")
@@ -101,6 +103,7 @@ def obter_contador_logado(token: str = Depends(oauth2_scheme), db: Session = Dep
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
 
 # 📌 Endpoint para Retornar os Clientes do Contador Autenticado
+
 @router.get("/clientes")
 def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Session = Depends(get_db)):
     clientes = db.query(Cliente).filter(Cliente.id_contador == contador.id_contador).all()
@@ -112,12 +115,13 @@ def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Ses
         {
             "id_cliente": cliente.id_cliente,
             "nome": cliente.nome,
-            "cnpj": cliente.cnpj,  # 🔍 Mantendo a máscara no retorno
+            "cnpj": formatar_cnpj(cliente.cnpj),  # 🔹 Aplica a formatação antes de retornar
             "email": cliente.email,
             "telefone": cliente.telefone
         }
         for cliente in clientes
     ]
+
 
 class SolicitarRedefinicao(BaseModel):
     email: EmailStr
