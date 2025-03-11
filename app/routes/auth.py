@@ -181,3 +181,12 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
     db.commit()
 
     return {"mensagem": "Senha redefinida com sucesso"}
+
+@router.get("/me")
+def obter_dados_contador(contador: Contador = Depends(obter_contador_logado)):
+    return {
+        "id_contador": contador.id_contador,
+        "nome": contador.nome,
+        "email": contador.email,
+        "cnpj": contador.cnpj
+    }
