@@ -106,7 +106,6 @@ def obter_contador_logado(token: str = Depends(oauth2_scheme), db: Session = Dep
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
 
 # 📌 Endpoint para Retornar os Clientes do Contador Autenticado
-
 @router.get("/clientes")
 def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Session = Depends(get_db)):
     clientes = db.query(Cliente).filter(Cliente.id_contador == contador.id_contador).all()
@@ -191,10 +190,16 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
     return {"mensagem": "Senha redefinida com sucesso"}
 
 @router.get("/me")
-def obter_dados_contador(contador: Contador = Depends(obter_contador_logado)):
+def obter_dados_contador(
+    contador: Contador = Depends(obter_contador_logado),
+    db: Session = Depends(get_db)
+):
+    total_clientes = db.query(Cliente).filter(Cliente.id_contador == contador.id_contador).count()
+
     return {
         "id_contador": contador.id_contador,
         "nome": contador.nome,
         "email": contador.email,
-        "cnpj": contador.cnpj
+        "cnpj": contador.cnpj,
+        "total_clientes": total_clientes  # 👈 agora vem junto
     }
