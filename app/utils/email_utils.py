@@ -32,7 +32,12 @@ def enviar_email(destinatario: str, assunto: str, corpo: str):
 
 
 def renderizar_template_email(nome_arquivo: str, contexto: dict) -> str:
-    diretorio = os.path.join(os.path.dirname(__file__), '..', 'templates', 'emails')
+    # Caminho da pasta onde está este arquivo (utils/)
+    diretorio = os.path.dirname(__file__)
+    
+    # Configura o Jinja para carregar os templates do mesmo diretório
     env = Environment(loader=FileSystemLoader(diretorio))
+    
+    # Carrega e renderiza o template
     template = env.get_template(nome_arquivo)
     return template.render(contexto)
