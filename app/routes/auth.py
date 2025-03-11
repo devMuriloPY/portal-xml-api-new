@@ -124,26 +124,34 @@ def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Ses
         for cliente in clientes
     ]
 
-
 class SolicitarRedefinicao(BaseModel):
-    email: EmailStr
+    identificador: str
+
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")  # Define o link do frontend
 
 # Endpoint para solicitar redefinição de senha
+
+
 @router.post("/solicitar-redefinicao")
 def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get_db)):
-    contador = db.query(Contador).filter(Contador.email == dados.email).first()
+    identificador = dados.identificador.strip()
+
+    # Verifica se é email ou CNPJ
+    if "@" in identificador:
+        contador = db.query(Contador).filter(Contador.email == identificador).first()
+    else:
+        cnpj_formatado = formatar_cnpj(identificador)
+        contador = db.query(Contador).filter(Contador.cnpj == cnpj_formatado).first()
 
     if not contador:
-        raise HTTPException(status_code=404, detail="E-mail não encontrado")
+        raise HTTPException(status_code=404, detail="E-mail ou CNPJ não encontrado")
 
     expiracao = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
     token_redefinicao = jwt.encode({"sub": contador.email, "exp": expiracao}, SECRET_KEY, algorithm=ALGORITHM)
 
     link_redefinicao = f"{FRONTEND_URL}/redefinir-senha?token={token_redefinicao}"
 
-    # ✅ Renderiza o template com o nome e link
     corpo_html = renderizar_template_email("redefinir_senha.html", {
         "nome": contador.nome,
         "link": link_redefinicao
@@ -156,6 +164,7 @@ def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get
     )
 
     return Response(content="E-mail de redefinição enviado com sucesso", status_code=200)
+
 # Modelo de entrada para redefinir senha
 class RedefinirSenha(BaseModel):
     token: str
