@@ -11,7 +11,7 @@ class Mensagem(BaseModel):
     data_inicio: str
     data_fim: str
 
-@router.websocket("/ws/{id_cliente}")
+@router.websocket("/{id_cliente}")
 async def websocket_endpoint(websocket: WebSocket, id_cliente: int):
     await websocket.accept()
     conexoes_ativas[id_cliente] = websocket
