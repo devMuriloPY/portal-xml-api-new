@@ -1,5 +1,6 @@
 import os
 import smtplib
+from jinja2 import Environment, FileSystemLoader
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -28,3 +29,10 @@ def enviar_email(destinatario: str, assunto: str, corpo: str):
 
     except Exception as e:
         print(f"❌ Erro ao enviar e-mail: {str(e)}")
+
+
+def renderizar_template_email(nome_arquivo: str, contexto: dict) -> str:
+    diretorio = os.path.join(os.path.dirname(__file__), '..', 'templates', 'emails')
+    env = Environment(loader=FileSystemLoader(diretorio))
+    template = env.get_template(nome_arquivo)
+    return template.render(contexto)

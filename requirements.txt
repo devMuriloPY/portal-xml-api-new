@@ -7,3 +7,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 email-validator
 bcrypt==4.0.1
+jinja2

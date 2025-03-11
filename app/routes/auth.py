@@ -11,7 +11,7 @@ from app.db.database import SessionLocal
 from app.models.contador import Contador
 from app.models.cliente import Cliente
 from app.utils.security import gerar_hash_senha, verificar_senha
-from app.utils.email_utils import enviar_email 
+from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj  # Importa a função
 
 # 🔐 Carregar SECRET_KEY do ambiente
@@ -132,33 +132,29 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")  # Define o li
 
 # Endpoint para solicitar redefinição de senha
 @router.post("/solicitar-redefinicao")
-# Criar link de redefinição apontando para o frontend
 def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get_db)):
     contador = db.query(Contador).filter(Contador.email == dados.email).first()
 
     if not contador:
         raise HTTPException(status_code=404, detail="E-mail não encontrado")
 
-    # Gerar token JWT válido por 30 minutos
-    expiracao = datetime.utcnow() + timedelta(minutes=30)
+    expiracao = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
     token_redefinicao = jwt.encode({"sub": contador.email, "exp": expiracao}, SECRET_KEY, algorithm=ALGORITHM)
 
-    # Criar o link para a página do frontend
     link_redefinicao = f"{FRONTEND_URL}/redefinir-senha?token={token_redefinicao}"
 
-    # Enviar e-mail
+    # ✅ Renderiza o template com o nome e link
+    corpo_html = renderizar_template_email("redefinir_senha.html", {
+        "nome": contador.nome,
+        "link": link_redefinicao
+    })
+
     enviar_email(
         destinatario=contador.email,
         assunto="Redefinição de Senha",
-        corpo=f"""
-        <p>Olá, {contador.nome},</p>
-        <p>Você solicitou a redefinição de senha. Clique no link abaixo para redefinir:</p>
-        <p><a href="{link_redefinicao}">Redefinir Senha</a></p>
-        <p>O link expira em 30 minutos.</p>
-        """
+        corpo=corpo_html
     )
 
-    
     return Response(content="E-mail de redefinição enviado com sucesso", status_code=200)
 # Modelo de entrada para redefinir senha
 class RedefinirSenha(BaseModel):
