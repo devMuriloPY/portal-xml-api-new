@@ -15,6 +15,7 @@ from app.models.solicitacao import Solicitacao
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj
+from routes.websocket import conexoes_ativas  # ajuste o caminho conforme seu projeto
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
@@ -203,9 +204,8 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
     return {"mensagem": "Senha redefinida com sucesso"}
 
 
-# 📌 Criar solicitação XML
 @router.post("/solicitacoes")
-def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
+async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
         data_inicio=dados.data_inicio,
@@ -217,6 +217,18 @@ def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
     db.add(nova)
     db.commit()
     db.refresh(nova)
+
+    # ✅ Enviar via WebSocket diretamente
+    websocket = conexoes_ativas.get(dados.id_cliente)
+    if websocket:
+        await websocket.send_json({
+            "id_cliente": dados.id_cliente,
+            "data_inicio": dados.data_inicio,
+            "data_fim": dados.data_fim,
+            "id_solicitacao": nova.id_solicitacao
+        })
+    else:
+        print(f"⚠️ Cliente {dados.id_cliente} não está conectado via WebSocket.")
 
     return {
         "status": "Solicitação registrada",
