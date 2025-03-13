@@ -15,7 +15,7 @@ from app.models.solicitacao import Solicitacao
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj
-from routes.websocket import conexoes_ativas  # ajuste o caminho conforme seu projeto
+from app.routes.websocket import conexoes_ativas  # ajuste o caminho conforme seu projeto
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
