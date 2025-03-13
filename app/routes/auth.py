@@ -236,25 +236,41 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
     }
 
 
-# 📌 Listar solicitações
 @router.get("/solicitacoes/{id_cliente}")
 def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
-    solicitacoes = db.query(Solicitacao).filter(Solicitacao.id_cliente == id_cliente).order_by(Solicitacao.data_solicitacao.desc()).all()
+    solicitacoes = db.query(Solicitacao).filter(
+        Solicitacao.id_cliente == id_cliente
+    ).order_by(Solicitacao.data_solicitacao.desc()).all()
 
+    agora = datetime.utcnow()
     resultado = []
+
     for s in solicitacoes:
         xml = db.execute(
-            text("SELECT url_arquivo FROM xmls WHERE id_solicitacao = :id"),
+            text("SELECT url_arquivo, expiracao FROM xmls WHERE id_solicitacao = :id"),
             {"id": s.id_solicitacao}
         ).fetchone()
 
-        resultado.append({
-            "id_solicitacao": s.id_solicitacao,
-            "data_inicio": s.data_inicio,
-            "data_fim": s.data_fim,
-            "status": "concluido" if xml else s.status,
-            "xml_url": xml[0] if xml else None,
-            "data_solicitacao": s.data_solicitacao
-        })
+        if xml:
+            url, expiracao = xml
+            if expiracao > agora:
+                resultado.append({
+                    "id_solicitacao": s.id_solicitacao,
+                    "data_inicio": s.data_inicio,
+                    "data_fim": s.data_fim,
+                    "status": "concluido",
+                    "xml_url": url,
+                    "data_solicitacao": s.data_solicitacao
+                })
+        else:
+            # Se ainda não tem XML, mantém como pendente (mostrar no frontend)
+            resultado.append({
+                "id_solicitacao": s.id_solicitacao,
+                "data_inicio": s.data_inicio,
+                "data_fim": s.data_fim,
+                "status": s.status,
+                "xml_url": None,
+                "data_solicitacao": s.data_solicitacao
+            })
 
     return resultado
