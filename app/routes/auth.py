@@ -208,3 +208,28 @@ def obter_dados_contador(
         "cnpj": contador.cnpj,
         "total_clientes": total_clientes  # 👈 agora vem junto
     }
+
+class CriarSolicitacao(BaseModel):
+    id_cliente: int
+    data_inicio: str
+    data_fim: str
+
+@router.post("/solicitacoes")
+def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
+    from app.models.solicitacao import Solicitacao
+
+    nova = Solicitacao(
+        id_cliente=dados.id_cliente,
+        data_inicio=dados.data_inicio,
+        data_fim=dados.data_fim,
+        status="pendente"
+    )
+
+    db.add(nova)
+    db.commit()
+    db.refresh(nova)
+
+    return {
+        "status": "Solicitação registrada",
+        "id_solicitacao": nova.id_solicitacao
+    }
