@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from app.db.database import SessionLocal
 from app.models.solicitacao import Solicitacao
-from app.models.xmls import XML  # se você tiver o model
+from app.models.xmls import XML  # ajuste para seu projeto
 
 def limpar_dados_expirados():
     db = SessionLocal()
@@ -12,9 +12,9 @@ def limpar_dados_expirados():
         deletadas_solicitacoes = db.query(Solicitacao).filter(Solicitacao.data_solicitacao < limite).delete()
 
         db.commit()
-        print(f"🧼 XMLs apagados: {deletadas_xmls}, Solicitações apagadas: {deletadas_solicitacoes}")
+        print(f"🧹 {deletadas_xmls} XMLs apagados | {deletadas_solicitacoes} solicitações apagadas.")
     except Exception as e:
-        print(f"❌ Erro ao limpar dados: {e}")
+        print(f"❌ Erro ao limpar dados expirados: {e}")
     finally:
         db.close()
 
