@@ -277,3 +277,23 @@ def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
             })
 
     return resultado
+
+@router.delete("/solicitacoes")
+def deletar_solicitacao(id_solicitacao: int, db: Session = Depends(get_db)):
+    # 🔍 Verifica se a solicitação existe
+    solicitacao = db.query(Solicitacao).filter(Solicitacao.id_solicitacao == id_solicitacao).first()
+
+    if not solicitacao:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada")
+
+    # 🗑️ Exclui primeiro o XML vinculado (se houver)
+    db.execute(
+        text("DELETE FROM xmls WHERE id_solicitacao = :id"),
+        {"id": id_solicitacao}
+    )
+
+    # 🗑️ Agora exclui a solicitação da tabela
+    db.delete(solicitacao)
+    db.commit()
+
+    return {"status": "Solicitação deletada com sucesso", "id_solicitacao": id_solicitacao}
