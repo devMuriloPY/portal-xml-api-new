@@ -278,8 +278,12 @@ def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
 
     return resultado
 
+class ExclusaoSolicitacao(BaseModel):
+    id_solicitacao: int
+
 @router.delete("/solicitacoes")
-def deletar_solicitacao(id_solicitacao: int, db: Session = Depends(get_db)):
+def deletar_solicitacao(payload: ExclusaoSolicitacao, db: Session = Depends(get_db)):
+    id_solicitacao = payload.id_solicitacao
     # 🔍 Verifica se a solicitação existe
     solicitacao = db.query(Solicitacao).filter(Solicitacao.id_solicitacao == id_solicitacao).first()
 
