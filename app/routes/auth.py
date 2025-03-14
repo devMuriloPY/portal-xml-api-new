@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from sqlalchemy import text
+from zoneinfo import ZoneInfo
 import os
 
 from app.db.database import SessionLocal
@@ -215,7 +216,7 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
         data_inicio=data_inicio,
         data_fim=data_fim,
         status="pendente",
-        data_solicitacao=datetime.utcnow()
+        data_solicitacao = datetime.now(ZoneInfo("America/Sao_Paulo"))
     )
 
     db.add(nova)
