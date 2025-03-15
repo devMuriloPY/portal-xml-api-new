@@ -204,14 +204,14 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
     return {"mensagem": "Senha redefinida com sucesso"}
 
 # 📌 Criar solicitação
+from datetime import timedelta
+
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
-    data_inicio = converter_data_segura(dados.data_inicio)
-    data_fim = converter_data_segura(dados.data_fim)
-    
-    print("🧪 DEBUG DATAS:")
-    print(f"type(data_inicio): {type(data_inicio)} -> {data_inicio}")
-    print(f"type(data_fim): {type(data_fim)} -> {data_fim}")
+    # Converte a string para date
+    # Foi necessário eu colcoar esse 1 dia mais por conta do Railway e PostgresSQL
+    data_inicio = converter_data_segura(dados.data_inicio) + timedelta(days=1)
+    data_fim = converter_data_segura(dados.data_fim) + timedelta(days=1)
 
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
@@ -229,8 +229,8 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
     if websocket:
         await websocket.send_json({
             "id_cliente": dados.id_cliente,
-            "data_inicio": dados.data_inicio,
-            "data_fim": dados.data_fim,
+            "data_inicio": str(data_inicio),
+            "data_fim": str(data_fim),
             "id_solicitacao": nova.id_solicitacao
         })
 
