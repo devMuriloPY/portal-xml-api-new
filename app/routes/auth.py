@@ -147,8 +147,28 @@ def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Ses
             "email": cliente.email,
             "telefone": cliente.telefone
         }
-        for cliente in clientes
+        for cliente in clientes        
     ]
+    
+# 📌 Obter cliente por ID
+@router.get("/clientes/{id_cliente}")
+def obter_cliente(id_cliente: int, contador: Contador = Depends(obter_contador_logado), db: Session = Depends(get_db)):
+    cliente = db.query(Cliente).filter(
+        Cliente.id_cliente == id_cliente,
+        Cliente.id_contador == contador.id_contador
+    ).first()
+
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    return {
+        "id_cliente": cliente.id_cliente,
+        "nome": cliente.nome,
+        "cnpj": formatar_cnpj(cliente.cnpj),
+        "email": cliente.email,
+        "telefone": cliente.telefone
+    }
+
 
 # 📌 Solicitar redefinição
 @router.post("/solicitar-redefinicao")
