@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text, SQLAlchemyError
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
