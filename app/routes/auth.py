@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta, time,date
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 from sqlalchemy import text
@@ -16,7 +16,7 @@ from app.models.solicitacao import Solicitacao
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj
-from app.routes.websocket import conexoes_ativas  # ajuste o caminho conforme seu projeto
+from app.routes.websocket import conexoes_ativas
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
@@ -27,6 +27,14 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+# 🔧 Funções utilitárias
+def agora_brasil():
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+
+def converter_data_segura(data_str: str) -> datetime.date:
+    fuso = ZoneInfo("America/Sao_Paulo")
+    dt = datetime.strptime(data_str, "%Y-%m-%d")
+    return datetime.combine(dt.date(), time(12, 0), tzinfo=fuso).astimezone(fuso).date()
 
 # 📌 Sessão do banco
 def get_db():
@@ -59,7 +67,6 @@ class CriarSolicitacao(BaseModel):
     data_inicio: str
     data_fim: str
 
-
 # 📌 Primeiro Acesso
 @router.post("/primeiro-acesso")
 def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
@@ -80,7 +87,6 @@ def primeiro_acesso(dados: PrimeiroAcesso, db: Session = Depends(get_db)):
 
     return JSONResponse(content={"message": "Senha cadastrada com sucesso!"}, status_code=201)
 
-
 # 📌 Login
 @router.post("/login")
 def login(dados: LoginSchema, db: Session = Depends(get_db)):
@@ -100,7 +106,6 @@ def login(dados: LoginSchema, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
-
 # 📌 Autenticação
 def obter_contador_logado(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
@@ -115,7 +120,6 @@ def obter_contador_logado(token: str = Depends(oauth2_scheme), db: Session = Dep
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
 
-
 # 📌 Retornar dados do contador
 @router.get("/me")
 def obter_dados_contador(contador: Contador = Depends(obter_contador_logado), db: Session = Depends(get_db)):
@@ -128,7 +132,6 @@ def obter_dados_contador(contador: Contador = Depends(obter_contador_logado), db
         "cnpj": contador.cnpj,
         "total_clientes": total_clientes
     }
-
 
 # 📌 Listar clientes
 @router.get("/clientes")
@@ -148,7 +151,6 @@ def listar_clientes(contador: Contador = Depends(obter_contador_logado), db: Ses
         }
         for cliente in clientes
     ]
-
 
 # 📌 Solicitar redefinição
 @router.post("/solicitar-redefinicao")
@@ -181,7 +183,6 @@ def solicitar_redefinicao(dados: SolicitarRedefinicao, db: Session = Depends(get
 
     return Response(content="E-mail de redefinição enviado com sucesso", status_code=200)
 
-
 # 📌 Redefinir senha
 @router.post("/redefinir-senha")
 def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
@@ -204,23 +205,18 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
 
     return {"mensagem": "Senha redefinida com sucesso"}
 
-
+# 📌 Criar solicitação
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
-    fuso = ZoneInfo("America/Sao_Paulo")
-
-    data_inicio_dt = datetime.strptime(dados.data_inicio, "%Y-%m-%d")
-    data_inicio = datetime.combine(data_inicio_dt.date(), time(12, 0), tzinfo=fuso).date()
-
-    data_fim_dt = datetime.strptime(dados.data_fim, "%Y-%m-%d")
-    data_fim = datetime.combine(data_fim_dt.date(), time(12, 0), tzinfo=fuso).date()
+    data_inicio = converter_data_segura(dados.data_inicio)
+    data_fim = converter_data_segura(dados.data_fim)
 
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
         data_inicio=data_inicio,
         data_fim=data_fim,
         status="pendente",
-        data_solicitacao=datetime.now(fuso)
+        data_solicitacao=agora_brasil()
     )
 
     db.add(nova)
@@ -241,7 +237,7 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
         "id_solicitacao": nova.id_solicitacao
     }
 
-
+# 📌 Listar solicitações
 @router.get("/solicitacoes/{id_cliente}")
 def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
     solicitacoes = db.query(Solicitacao).filter(
@@ -257,49 +253,32 @@ def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
             {"id": s.id_solicitacao}
         ).fetchone()
 
-        if xml:
-            url, expiracao = xml
-            if expiracao > agora:
-                resultado.append({
-                    "id_solicitacao": s.id_solicitacao,
-                    "data_inicio": s.data_inicio,
-                    "data_fim": s.data_fim,
-                    "status": "concluido",
-                    "xml_url": url,
-                    "data_solicitacao": s.data_solicitacao
-                })
-        else:
-            # Se ainda não tem XML, mantém como pendente (mostrar no frontend)
-            resultado.append({
-                "id_solicitacao": s.id_solicitacao,
-                "data_inicio": s.data_inicio,
-                "data_fim": s.data_fim,
-                "status": s.status,
-                "xml_url": None,
-                "data_solicitacao": s.data_solicitacao
-            })
+        data_solicitacao = s.data_solicitacao.astimezone(ZoneInfo("America/Sao_Paulo")).isoformat()
+
+        resultado.append({
+            "id_solicitacao": s.id_solicitacao,
+            "data_inicio": s.data_inicio,
+            "data_fim": s.data_fim,
+            "status": "concluido" if xml and xml[1] > agora else s.status,
+            "xml_url": xml[0] if xml and xml[1] > agora else None,
+            "data_solicitacao": data_solicitacao
+        })
 
     return resultado
 
+# 📌 Excluir solicitação
 class ExclusaoSolicitacao(BaseModel):
     id_solicitacao: int
 
 @router.delete("/solicitacoes")
 def deletar_solicitacao(payload: ExclusaoSolicitacao, db: Session = Depends(get_db)):
     id_solicitacao = payload.id_solicitacao
-    # 🔍 Verifica se a solicitação existe
     solicitacao = db.query(Solicitacao).filter(Solicitacao.id_solicitacao == id_solicitacao).first()
 
     if not solicitacao:
         raise HTTPException(status_code=404, detail="Solicitação não encontrada")
 
-    # 🗑️ Exclui primeiro o XML vinculado (se houver)
-    db.execute(
-        text("DELETE FROM xmls WHERE id_solicitacao = :id"),
-        {"id": id_solicitacao}
-    )
-
-    # 🗑️ Agora exclui a solicitação da tabela
+    db.execute(text("DELETE FROM xmls WHERE id_solicitacao = :id"), {"id": id_solicitacao})
     db.delete(solicitacao)
     db.commit()
 
