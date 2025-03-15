@@ -208,15 +208,16 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
     # 🧠 Converte strings para `datetime.date`
-    data_inicio = datetime.strptime(dados.data_inicio, "%Y-%m-%d").date()
-    data_fim = datetime.strptime(dados.data_fim, "%Y-%m-%d").date()
+    fuso = ZoneInfo("America/Sao_Paulo")
+    data_inicio = datetime.strptime(dados.data_inicio, "%Y-%m-%d").replace(tzinfo=fuso).date()
+    data_fim = datetime.strptime(dados.data_fim, "%Y-%m-%d").replace(tzinfo=fuso).date()
 
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
         data_inicio=data_inicio,
         data_fim=data_fim,
         status="pendente",
-        data_solicitacao = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        data_solicitacao = datetime.now(fuso)
     )
 
     db.add(nova)
