@@ -209,10 +209,9 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
     data_inicio = converter_data_segura(dados.data_inicio)
     data_fim = converter_data_segura(dados.data_fim)
     
-    # ✅ PRINT para debug
-    print("🔍 Salvando solicitação:")
-    print(f"📅 data_inicio: {data_inicio}")
-    print(f"📅 data_fim: {data_fim}")
+    print("🧪 DEBUG DATAS:")
+    print(f"type(data_inicio): {type(data_inicio)} -> {data_inicio}")
+    print(f"type(data_fim): {type(data_fim)} -> {data_fim}")
 
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
