@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, SQLAlchemyError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -28,7 +28,8 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def agora_brasil():
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    # Retorna um datetime sem fuso horário (offset-naive)
+    return datetime.now().replace(tzinfo=None)
 
 def converter_data_segura(data_str: str) -> datetime.date:
     return datetime.strptime(data_str, "%Y-%m-%d").date()
@@ -229,34 +230,42 @@ async def redefinir_senha(dados: RedefinirSenha, db: AsyncSession = Depends(get_
 # 📌 Criar solicitação
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(get_db)):
-    data_inicio = converter_data_segura(dados.data_inicio) + timedelta(days=1)
-    data_fim = converter_data_segura(dados.data_fim) + timedelta(days=1)
+    try:
+        # Converte as datas para datetime.date (já são offset-naive)
+        data_inicio = converter_data_segura(dados.data_inicio) + timedelta(days=1)
+        data_fim = converter_data_segura(dados.data_fim) + timedelta(days=1)
 
-    nova = Solicitacao(
-        id_cliente=dados.id_cliente,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        status="pendente",
-        data_solicitacao=agora_brasil()
-    )
+        # Cria a solicitação com data_solicitacao offset-naive
+        nova = Solicitacao(
+            id_cliente=dados.id_cliente,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            status="pendente",
+            data_solicitacao=agora_brasil()  # Agora retorna um datetime sem fuso horário
+        )
 
-    db.add(nova)
-    await db.commit()
-    await db.refresh(nova)
+        db.add(nova)
+        await db.commit()
+        await db.refresh(nova)
 
-    websocket = conexoes_ativas.get(dados.id_cliente)
-    if websocket:
-        await websocket.send_json({
-            "id_cliente": dados.id_cliente,
-            "data_inicio": str(data_inicio),
-            "data_fim": str(data_fim),
+        # Notifica via WebSocket (se necessário)
+        websocket = conexoes_ativas.get(dados.id_cliente)
+        if websocket:
+            await websocket.send_json({
+                "id_cliente": dados.id_cliente,
+                "data_inicio": str(data_inicio),
+                "data_fim": str(data_fim),
+                "id_solicitacao": nova.id_solicitacao
+            })
+
+        return {
+            "status": "Solicitação registrada",
             "id_solicitacao": nova.id_solicitacao
-        })
-
-    return {
-        "status": "Solicitação registrada",
-        "id_solicitacao": nova.id_solicitacao
-    }
+        }
+    except SQLAlchemyError as e:
+        await db.rollback()
+        print(f"Erro ao criar solicitação: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao criar solicitação")
 
 # 📌 Listar solicitações
 @router.get("/solicitacoes/{id_cliente}")
@@ -275,7 +284,7 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
         )
         xml_data = xml.fetchone()
 
-        data_solicitacao = s.data_solicitacao.astimezone(ZoneInfo("America/Sao_Paulo")).isoformat()
+        data_solicitacao = s.data_solicitacao.isoformat()
 
         resposta.append({
             "id_solicitacao": s.id_solicitacao,
