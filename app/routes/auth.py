@@ -233,14 +233,16 @@ async def redefinir_senha(dados: RedefinirSenha, db: AsyncSession = Depends(get_
 async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(get_db)):
     try:
         # Converte as datas para datetime.date (já são offset-naive)
-        data_inicio = converter_data_segura(dados.data_inicio) + timedelta(days=1)
-        data_fim = converter_data_segura(dados.data_fim) + timedelta(days=1)
-
+        data_inicio_api = converter_data_segura(dados.data_inicio) + timedelta(days=1)
+        data_fim_api = converter_data_segura(dados.data_fim) + timedelta(days=1)
+        
+        data_inicio = converter_data_segura(dados.data_inicio)
+        data_fim = converter_data_segura(dados.data_fim)
         # Cria a solicitação com data_solicitacao offset-naive
         nova = Solicitacao(
             id_cliente=dados.id_cliente,
-            data_inicio=data_inicio,
-            data_fim=data_fim,
+            data_inicio=data_inicio_api,
+            data_fim=data_fim_api,
             status="pendente",
             data_solicitacao=agora_brasil()  # Agora retorna um datetime sem fuso horário
         )
