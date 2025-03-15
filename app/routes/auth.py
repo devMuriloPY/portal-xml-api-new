@@ -32,9 +32,7 @@ def agora_brasil():
     return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 def converter_data_segura(data_str: str) -> datetime.date:
-    fuso = ZoneInfo("America/Sao_Paulo")
-    dt = datetime.strptime(data_str, "%Y-%m-%d")
-    return datetime.combine(dt.date(), time(12, 0), tzinfo=fuso).astimezone(fuso).date()
+    return datetime.strptime(data_str, "%Y-%m-%d").date()
 
 # 📌 Sessão do banco
 def get_db():
