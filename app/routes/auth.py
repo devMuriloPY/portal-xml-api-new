@@ -3,10 +3,10 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time,date
+from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 from sqlalchemy import text
-from zoneinfo import ZoneInfo
 import os
 
 from app.db.database import SessionLocal
@@ -207,24 +207,26 @@ def redefinir_senha(dados: RedefinirSenha, db: Session = Depends(get_db)):
 
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_db)):
-    # 🧠 Converte strings para `datetime.date`
     fuso = ZoneInfo("America/Sao_Paulo")
-    data_inicio = datetime.strptime(dados.data_inicio, "%Y-%m-%d").replace(tzinfo=fuso).date()
-    data_fim = datetime.strptime(dados.data_fim, "%Y-%m-%d").replace(tzinfo=fuso).date()
+
+    data_inicio_dt = datetime.strptime(dados.data_inicio, "%Y-%m-%d")
+    data_inicio = datetime.combine(data_inicio_dt.date(), time(12, 0), tzinfo=fuso).date()
+
+    data_fim_dt = datetime.strptime(dados.data_fim, "%Y-%m-%d")
+    data_fim = datetime.combine(data_fim_dt.date(), time(12, 0), tzinfo=fuso).date()
 
     nova = Solicitacao(
         id_cliente=dados.id_cliente,
         data_inicio=data_inicio,
         data_fim=data_fim,
         status="pendente",
-        data_solicitacao = datetime.now(fuso)
+        data_solicitacao=datetime.now(fuso)
     )
 
     db.add(nova)
     db.commit()
     db.refresh(nova)
 
-    # ✅ Enviar via WebSocket diretamente
     websocket = conexoes_ativas.get(dados.id_cliente)
     if websocket:
         await websocket.send_json({
@@ -233,13 +235,12 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: Session = Depends(get_d
             "data_fim": dados.data_fim,
             "id_solicitacao": nova.id_solicitacao
         })
-    else:
-        print(f"⚠️ Cliente {dados.id_cliente} não está conectado via WebSocket.")
 
     return {
         "status": "Solicitação registrada",
         "id_solicitacao": nova.id_solicitacao
     }
+
 
 @router.get("/solicitacoes/{id_cliente}")
 def listar_solicitacoes(id_cliente: int, db: Session = Depends(get_db)):
