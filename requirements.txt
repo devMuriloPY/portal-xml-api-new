@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 sqlalchemy
+asyncpg
 psycopg2-binary
 python-dotenv
 passlib[bcrypt]
@@ -9,4 +10,3 @@ email-validator
 bcrypt==4.0.1
 jinja2
 websockets
-asyncpg
