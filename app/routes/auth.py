@@ -57,6 +57,10 @@ class CriarSolicitacao(BaseModel):
     data_inicio: str
     data_fim: str
 
+class AtualizarStatusSolicitacao(BaseModel):
+    id_solicitacao: int
+    novo_status: str
+
 class ExclusaoSolicitacao(BaseModel):
     id_solicitacao: int
 
@@ -228,6 +232,20 @@ async def redefinir_senha(dados: RedefinirSenha, db: AsyncSession = Depends(get_
     await db.commit()
 
     return {"mensagem": "Senha redefinida com sucesso"}
+
+
+@router.put("/solicitacoes/status")
+async def atualizar_status_solicitacao(dados: AtualizarStatusSolicitacao, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Solicitacao).where(Solicitacao.id_solicitacao == dados.id_solicitacao))
+    solicitacao = result.scalars().first()
+    
+    if not solicitacao:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada")
+    
+    solicitacao.status = dados.novo_status
+    await db.commit()
+    
+    return {"mensagem": f"Status atualizado para {dados.novo_status}"}
 
 # 📌 Criar solicitação
 @router.post("/solicitacoes")
