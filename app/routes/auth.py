@@ -19,7 +19,7 @@ from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj
 from app.routes.websocket import conexoes_ativas
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 RESET_TOKEN_EXPIRE_MINUTES = 30
@@ -84,7 +84,8 @@ async def primeiro_acesso(dados: PrimeiroAcesso, db: AsyncSession = Depends(get_
 # 📌 Login
 @router.post("/login")
 async def login(dados: LoginSchema, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Contador).where(Contador.cnpj == dados.cnpj))
+    cnpj_formatado = formatar_cnpj(dados.cnpj)
+    result = await db.execute(select(Contador).where(Contador.cnpj == cnpj_formatado))
     contador = result.scalars().first()
 
     if not contador or not contador.senha_hash:

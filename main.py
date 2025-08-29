@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, websocket
-
+from dotenv import load_dotenv
+load_dotenv()
 app = FastAPI(title="API Portal XML")
 
 # 🔥 Habilitar CORS para permitir requisições do frontend
