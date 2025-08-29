@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 import os
+import asyncio
 
 from app.db.database import get_db
 from app.models.contador import Contador
@@ -335,3 +336,58 @@ async def deletar_solicitacao(payload: ExclusaoSolicitacao, db: AsyncSession = D
     await db.commit()
 
     return {"status": "Solicitação deletada com sucesso", "id_solicitacao": id_solicitacao}
+
+# 📌 Sistema de retry para solicitações pendentes
+async def tentar_reprocessar_solicitacoes():
+    """Função para tentar reprocessar solicitações pendentes via WebSocket"""
+    while True:
+        try:
+            # Buscar solicitações pendentes há mais de 10 segundos
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Solicitacao).where(
+                        Solicitacao.status == "pendente",
+                        Solicitacao.data_solicitacao < datetime.utcnow() - timedelta(seconds=10)
+                    )
+                )
+                solicitacoes_pendentes = result.scalars().all()
+                
+                for solicitacao in solicitacoes_pendentes:
+                    # Buscar cliente para notificar
+                    result_cliente = await db.execute(
+                        select(Cliente).where(Cliente.id_cliente == solicitacao.id_cliente)
+                    )
+                    cliente = result_cliente.scalars().first()
+                    
+                    if cliente and cliente.id_cliente in conexoes_ativas:
+                        # Tentar enviar novamente
+                        websocket = conexoes_ativas[cliente.id_cliente]
+                        await websocket.send_json({
+                            "id_cliente": cliente.id_cliente,
+                            "data_inicio": str(solicitacao.data_inicio),
+                            "data_fim": str(solicitacao.data_fim),
+                            "id_solicitacao": solicitacao.id_solicitacao,
+                            "retry": True
+                        })
+                        print(f"�� Retry enviado para solicitação {solicitacao.id_solicitacao}")
+                    else:
+                        # Incrementar contador de tentativas
+                        if not hasattr(solicitacao, 'tentativas'):
+                            solicitacao.tentativas = 0
+                        solicitacao.tentativas += 1
+                        
+                        if solicitacao.tentativas >= 3:
+                            solicitacao.status = "sem_conexao"
+                            print(f"❌ Solicitação {solicitacao.id_solicitacao} marcada como 'sem_conexao'")
+                        
+                        await db.commit()
+            
+        except Exception as e:
+            print(f"Erro no sistema de retry: {e}")
+        
+        await asyncio.sleep(10)  # Aguardar 10 segundos antes da próxima verificação
+
+# Iniciar o sistema de retry quando a aplicação iniciar
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(tentar_reprocessar_solicitacoes())
