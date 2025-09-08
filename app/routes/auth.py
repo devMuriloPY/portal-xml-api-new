@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 RESET_TOKEN_EXPIRE_MINUTES = 30
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.murilomendonca.com.br/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.portalxml.wmsistemas.inf.br/")
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
