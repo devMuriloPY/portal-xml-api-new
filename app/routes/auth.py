@@ -301,7 +301,21 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
 
     for s in solicitacoes:
         xml = await db.execute(
-            text("SELECT url_arquivo, expiracao FROM xmls WHERE id_solicitacao = :id"),
+            text("""
+                SELECT 
+                    url_arquivo,
+                    expiracao,
+                    valor_nfe_autorizadas,
+                    valor_nfe_canceladas,
+                    valor_nfc_autorizadas,
+                    valor_nfc_canceladas,
+                    quantidade_nfe_autorizadas,
+                    quantidade_nfe_canceladas,
+                    quantidade_nfc_autorizadas,
+                    quantidade_nfc_canceladas
+                FROM xmls
+                WHERE id_solicitacao = :id
+            """),
             {"id": s.id_solicitacao}
         )
         xml_data = xml.fetchone()
@@ -314,7 +328,15 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
             "data_fim": s.data_fim,
             "status": "concluido" if xml_data and xml_data[1] > agora else s.status,
             "xml_url": xml_data[0] if xml_data and xml_data[1] > agora else None,
-            "data_solicitacao": data_solicitacao
+            "data_solicitacao": data_solicitacao,
+            "valor_nfe_autorizadas": xml_data[2],
+            "valor_nfe_canceladas": xml_data[3],
+            "valor_nfc_autorizadas": xml_data[4],
+            "valor_nfc_canceladas": xml_data[5],
+            "quantidade_nfe_autorizadas": xml_data[6],
+            "quantidade_nfe_canceladas": xml_data[7],
+            "quantidade_nfc_autorizadas": xml_data[8],
+            "quantidade_nfc_canceladas": xml_data[9]
         })
 
     return resposta
