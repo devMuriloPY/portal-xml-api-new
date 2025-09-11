@@ -10,3 +10,4 @@ email-validator
 bcrypt==4.0.1
 jinja2
 websockets
+tzdata>=2023.3

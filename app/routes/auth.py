@@ -29,7 +29,8 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def agora_brasil():
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    # Retorna um datetime sem fuso horário (offset-naive)
+    return datetime.now().replace(tzinfo=None)
 
 def converter_data_segura(data_str: str) -> datetime.date:
     return datetime.strptime(data_str, "%Y-%m-%d").date()
@@ -321,21 +322,45 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
 
         data_solicitacao = s.data_solicitacao.isoformat()
 
+        # Verificar se xml_data existe antes de acessar os índices
+        if xml_data and xml_data[1] > agora:
+            status = "concluido"
+            xml_url = xml_data[0]
+            valor_nfe_autorizadas = xml_data[2]
+            valor_nfe_canceladas = xml_data[3]
+            valor_nfc_autorizadas = xml_data[4]
+            valor_nfc_canceladas = xml_data[5]
+            quantidade_nfe_autorizadas = xml_data[6]
+            quantidade_nfe_canceladas = xml_data[7]
+            quantidade_nfc_autorizadas = xml_data[8]
+            quantidade_nfc_canceladas = xml_data[9]
+        else:
+            status = s.status
+            xml_url = None
+            valor_nfe_autorizadas = None
+            valor_nfe_canceladas = None
+            valor_nfc_autorizadas = None
+            valor_nfc_canceladas = None
+            quantidade_nfe_autorizadas = None
+            quantidade_nfe_canceladas = None
+            quantidade_nfc_autorizadas = None
+            quantidade_nfc_canceladas = None
+
         resposta.append({
             "id_solicitacao": s.id_solicitacao,
             "data_inicio": s.data_inicio,
             "data_fim": s.data_fim,
-            "status": "concluido" if xml_data and xml_data[1] > agora else s.status,
-            "xml_url": xml_data[0] if xml_data and xml_data[1] > agora else None,
+            "status": status,
+            "xml_url": xml_url,
             "data_solicitacao": data_solicitacao,
-            "valor_nfe_autorizadas": xml_data[2],
-            "valor_nfe_canceladas": xml_data[3],
-            "valor_nfc_autorizadas": xml_data[4],
-            "valor_nfc_canceladas": xml_data[5],
-            "quantidade_nfe_autorizadas": xml_data[6],
-            "quantidade_nfe_canceladas": xml_data[7],
-            "quantidade_nfc_autorizadas": xml_data[8],
-            "quantidade_nfc_canceladas": xml_data[9]
+            "valor_nfe_autorizadas": valor_nfe_autorizadas,
+            "valor_nfe_canceladas": valor_nfe_canceladas,
+            "valor_nfc_autorizadas": valor_nfc_autorizadas,
+            "valor_nfc_canceladas": valor_nfc_canceladas,
+            "quantidade_nfe_autorizadas": quantidade_nfe_autorizadas,
+            "quantidade_nfe_canceladas": quantidade_nfe_canceladas,
+            "quantidade_nfc_autorizadas": quantidade_nfc_autorizadas,
+            "quantidade_nfc_canceladas": quantidade_nfc_canceladas
         })
 
     return resposta
