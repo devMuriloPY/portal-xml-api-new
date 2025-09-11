@@ -29,8 +29,7 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def agora_brasil():
-    # Retorna um datetime sem fuso horário (offset-naive)
-    return datetime.now().replace(tzinfo=None)
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 def converter_data_segura(data_str: str) -> datetime.date:
     return datetime.strptime(data_str, "%Y-%m-%d").date()
