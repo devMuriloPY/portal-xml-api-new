@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 # Carregar variáveis de ambiente do .env
 load_dotenv()
 
-from app.routes import auth, websocket
+from app.routes import auth, websocket, feedback
 from app.utils.retry_service import retry_service
 
 @asynccontextmanager
@@ -33,6 +33,7 @@ app.add_middleware(
 
 # Incluir rotas HTTP
 app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
+app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
 
 # Incluir rotas WebSocket
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
