@@ -378,18 +378,6 @@ async def redefinir_senha(dados: PasswordReset, request: Request, db: AsyncSessi
     # Log de auditoria
     await log_audit(db, contador.id_contador, email, "password_reset", ip_address, "success")
     
-    # Envia email de confirmação
-    corpo_html = renderizar_template_email("redefinir_senha.html", {
-        "nome": contador.nome,
-        "link": f"{FRONTEND_URL}/login"
-    })
-    
-    enviar_email(
-        destinatario=contador.email,
-        assunto="Senha Alterada com Sucesso",
-        corpo=corpo_html
-    )
-    
     return {"message": "Senha atualizada."}
 
 # 📌 Atualizar status da solicitação (chamado pelo desktop)
