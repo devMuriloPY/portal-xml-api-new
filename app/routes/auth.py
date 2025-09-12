@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,11 +9,16 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 import os
+import secrets
+import hashlib
+from typing import Optional
 
 from app.db.database import get_db
 from app.models.contador import Contador
 from app.models.cliente import Cliente
 from app.models.solicitacao import Solicitacao
+from app.models.otp import OTP
+from app.models.audit import AuditLog
 from app.utils.security import gerar_hash_senha, verificar_senha
 from app.utils.email_utils import enviar_email, renderizar_template_email
 from app.utils.cnpj_mask import formatar_cnpj
@@ -22,7 +27,8 @@ from app.routes.websocket import conexoes_ativas
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-RESET_TOKEN_EXPIRE_MINUTES = 30
+OTP_EXPIRE_MINUTES = 15
+RESET_TOKEN_EXPIRE_MINUTES = 10
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.portalxml.wmsistemas.inf.br/")
 
 router = APIRouter()
@@ -35,6 +41,46 @@ def agora_brasil():
 def converter_data_segura(data_str: str) -> datetime.date:
     return datetime.strptime(data_str, "%Y-%m-%d").date()
 
+def gerar_otp() -> str:
+    """Gera um código OTP de 4 dígitos"""
+    return f"{secrets.randbelow(10000):04d}"
+
+def hash_otp(otp: str) -> str:
+    """Gera hash do OTP para armazenamento seguro"""
+    return hashlib.sha256(otp.encode()).hexdigest()
+
+def verificar_otp(otp: str, otp_hash: str) -> bool:
+    """Verifica se o OTP está correto usando comparação em tempo constante"""
+    return secrets.compare_digest(hash_otp(otp), otp_hash)
+
+async def log_audit(db: AsyncSession, user_id: Optional[int], identifier: str, action: str, 
+                   ip_address: Optional[str], result: str, details: Optional[str] = None):
+    """Registra ação de auditoria"""
+    audit_log = AuditLog(
+        user_id=user_id,
+        identifier=identifier,
+        action=action,
+        ip_address=ip_address,
+        result=result,
+        details=details
+    )
+    db.add(audit_log)
+    await db.commit()
+
+async def encontrar_contador_por_identificador(db: AsyncSession, identifier: str) -> Optional[Contador]:
+    """Encontra contador por email ou CNPJ"""
+    identifier = identifier.strip()
+    
+    if "@" in identifier:
+        # É um email
+        result = await db.execute(select(Contador).where(Contador.email == identifier))
+    else:
+        # É um CNPJ
+        cnpj_formatado = formatar_cnpj(identifier)
+        result = await db.execute(select(Contador).where(Contador.cnpj == cnpj_formatado))
+    
+    return result.scalars().first()
+
 class PrimeiroAcesso(BaseModel):
     cnpj: str
     senha: str
@@ -44,13 +90,15 @@ class LoginSchema(BaseModel):
     cnpj: str
     senha: str
 
-class SolicitarRedefinicao(BaseModel):
-    identificador: str
+class OTPRequest(BaseModel):
+    identifier: str
 
-class RedefinirSenha(BaseModel):
-    token: str
-    nova_senha: str
-    confirmar_senha: str
+class OTPVerify(BaseModel):
+    identifier: str
+    code: str
+
+class PasswordReset(BaseModel):
+    new_password: str
 
 class CriarSolicitacao(BaseModel):
     id_cliente: int
@@ -85,7 +133,7 @@ async def primeiro_acesso(dados: PrimeiroAcesso, db: AsyncSession = Depends(get_
 
     return JSONResponse(content={"message": "Senha cadastrada com sucesso!"}, status_code=201)
 
-# �� Login
+# 🔐 Login
 @router.post("/login")
 async def login(dados: LoginSchema, db: AsyncSession = Depends(get_db)):
     cnpj_formatado = formatar_cnpj(dados.cnpj)
@@ -106,7 +154,7 @@ async def login(dados: LoginSchema, db: AsyncSession = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
-# �� Autenticação
+# 🔐 Autenticação
 async def obter_contador_logado(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -121,7 +169,7 @@ async def obter_contador_logado(token: str = Depends(oauth2_scheme), db: AsyncSe
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
 
-# �� Dados do contador
+# 📌 Dados do contador
 @router.get("/me")
 async def obter_dados_contador(contador: Contador = Depends(obter_contador_logado), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Cliente).where(Cliente.id_contador == contador.id_contador))
@@ -177,61 +225,172 @@ async def obter_cliente(id_cliente: int, contador: Contador = Depends(obter_cont
         "telefone": cliente.telefone
     }
 
-# �� Solicitar redefinição
-@router.post("/solicitar-redefinicao")
-async def solicitar_redefinicao(dados: SolicitarRedefinicao, db: AsyncSession = Depends(get_db)):
-    identificador = dados.identificador.strip()
+# 📌 Solicitar OTP para redefinição de senha
+@router.post("/password/otp/request")
+async def solicitar_otp(dados: OTPRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    identifier = dados.identifier.strip()
+    ip_address = request.client.host if request.client else None
+    
+    # Busca silenciosa - não revela se a conta existe
+    contador = await encontrar_contador_por_identificador(db, identifier)
+    
+    if contador:
+        # Gera OTP
+        otp_code = gerar_otp()
+        otp_hash = hash_otp(otp_code)
+        
+        # Expiração em 15 minutos
+        expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+        
+        # Cria registro OTP
+        otp_record = OTP(
+            identifier=identifier,
+            otp_hash=otp_hash,
+            expires_at=expires_at,
+            max_attempts=5
+        )
+        
+        db.add(otp_record)
+        await db.commit()
+        
+        # Envia email com OTP
+        corpo_html = renderizar_template_email("otp_template.html", {
+            "nome": contador.nome,
+            "codigo": otp_code
+        })
+        
+        enviar_email(
+            destinatario=contador.email,
+            assunto="Código de Verificação - Redefinição de Senha",
+            corpo=corpo_html
+        )
+        
+        # Log de auditoria
+        await log_audit(db, contador.id_contador, identifier, "otp_request", ip_address, "success")
+    
+    # Sempre retorna a mesma mensagem, independente de existir ou não
+    return {"message": "Se existir uma conta, enviamos um código para o e-mail cadastrado."}
 
-    if "@" in identificador:
-        result = await db.execute(select(Contador).where(Contador.email == identificador))
-    else:
-        cnpj_formatado = formatar_cnpj(identificador)
-        result = await db.execute(select(Contador).where(Contador.cnpj == cnpj_formatado))
-
-    contador = result.scalars().first()
-
-    if not contador:
-        raise HTTPException(status_code=404, detail="E-mail ou CNPJ não encontrado")
-
-    expiracao = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
-    token_redefinicao = jwt.encode({"sub": contador.email, "exp": expiracao}, SECRET_KEY, algorithm=ALGORITHM)
-    link_redefinicao = f"{FRONTEND_URL}/redefinir-senha?token={token_redefinicao}"
-
-    corpo_html = renderizar_template_email("redefinir_senha.html", {
-        "nome": contador.nome,
-        "link": link_redefinicao
-    })
-
-    enviar_email(
-        destinatario=contador.email,
-        assunto="Redefinição de Senha",
-        corpo=corpo_html
+# 📌 Verificar OTP
+@router.post("/password/otp/verify")
+async def verificar_otp_endpoint(dados: OTPVerify, request: Request, db: AsyncSession = Depends(get_db)):
+    identifier = dados.identifier.strip()
+    code = dados.code.strip()
+    ip_address = request.client.host if request.client else None
+    
+    # Busca OTP válido
+    result = await db.execute(
+        select(OTP).where(
+            OTP.identifier == identifier,
+            OTP.used == False,
+            OTP.expires_at > datetime.utcnow()
+        ).order_by(OTP.created_at.desc())
     )
+    otp_record = result.scalars().first()
+    
+    if not otp_record:
+        await log_audit(db, None, identifier, "otp_verify", ip_address, "error", "OTP não encontrado ou expirado")
+        return {"status": "error"}
+    
+    # Verifica se excedeu tentativas
+    if otp_record.attempts >= otp_record.max_attempts:
+        otp_record.used = True
+        await db.commit()
+        await log_audit(db, None, identifier, "otp_verify", ip_address, "error", "Máximo de tentativas excedido")
+        return {"status": "error"}
+    
+    # Incrementa tentativas
+    otp_record.attempts += 1
+    
+    # Verifica código
+    if verificar_otp(code, otp_record.otp_hash):
+        # Sucesso - gera reset token
+        contador = await encontrar_contador_por_identificador(db, identifier)
+        if not contador:
+            await db.commit()
+            await log_audit(db, None, identifier, "otp_verify", ip_address, "error", "Usuário não encontrado")
+            return {"status": "error"}
+        
+        # Marca OTP como usado
+        otp_record.used = True
+        
+        # Gera reset token (10 minutos, single-use)
+        expires_at = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        reset_token = jwt.encode({
+            "sub": contador.email,
+            "exp": expires_at,
+            "type": "password_reset",
+            "otp_id": otp_record.id_otp
+        }, SECRET_KEY, algorithm=ALGORITHM)
+        
+        await db.commit()
+        await log_audit(db, contador.id_contador, identifier, "otp_verify", ip_address, "success")
+        
+        return {"status": "ok", "reset_token": reset_token}
+    else:
+        # Código incorreto
+        await db.commit()
+        await log_audit(db, None, identifier, "otp_verify", ip_address, "error", f"Tentativa {otp_record.attempts}")
+        return {"status": "error"}
 
-    return Response(content="E-mail de redefinição enviado com sucesso", status_code=200)
-
-# 📌 Redefinir senha
-@router.post("/redefinir-senha")
-async def redefinir_senha(dados: RedefinirSenha, db: AsyncSession = Depends(get_db)):
+# 📌 Redefinir senha com reset token
+@router.post("/password/reset")
+async def redefinir_senha(dados: PasswordReset, request: Request, db: AsyncSession = Depends(get_db)):
+    # Verifica token de autorização
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token de autorização necessário")
+    
+    reset_token = auth_header.split(" ")[1]
+    ip_address = request.client.host if request.client else None
+    
     try:
-        payload = jwt.decode(dados.token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
-    except:
+        token_type = payload.get("type")
+        otp_id = payload.get("otp_id")
+        
+        if token_type != "password_reset":
+            raise HTTPException(status_code=400, detail="Token inválido")
+            
+    except JWTError:
         raise HTTPException(status_code=400, detail="Token inválido ou expirado")
-
+    
+    # Busca contador
     result = await db.execute(select(Contador).where(Contador.email == email))
     contador = result.scalars().first()
-
+    
     if not contador:
+        await log_audit(db, None, email, "password_reset", ip_address, "error", "Usuário não encontrado")
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-
-    if dados.nova_senha != dados.confirmar_senha:
-        raise HTTPException(status_code=400, detail="As senhas não coincidem")
-
-    contador.senha_hash = gerar_hash_senha(dados.nova_senha)
+    
+    # Verifica se OTP foi usado (single-use token)
+    if otp_id:
+        otp_result = await db.execute(select(OTP).where(OTP.id_otp == otp_id))
+        otp_record = otp_result.scalars().first()
+        if otp_record and not otp_record.used:
+            otp_record.used = True  # Marca como usado para invalidar token
+    
+    # Atualiza senha
+    contador.senha_hash = gerar_hash_senha(dados.new_password)
     await db.commit()
-
-    return {"mensagem": "Senha redefinida com sucesso"}
+    
+    # Log de auditoria
+    await log_audit(db, contador.id_contador, email, "password_reset", ip_address, "success")
+    
+    # Envia email de confirmação
+    corpo_html = renderizar_template_email("redefinir_senha.html", {
+        "nome": contador.nome,
+        "link": f"{FRONTEND_URL}/login"
+    })
+    
+    enviar_email(
+        destinatario=contador.email,
+        assunto="Senha Alterada com Sucesso",
+        corpo=corpo_html
+    )
+    
+    return {"message": "Senha atualizada."}
 
 # 📌 Atualizar status da solicitação (chamado pelo desktop)
 @router.put("/solicitacoes/status")
@@ -247,7 +406,7 @@ async def atualizar_status_solicitacao(dados: AtualizarStatusSolicitacao, db: As
     
     return {"mensagem": f"Status atualizado para {dados.novo_status}"}
 
-# �� Criar solicitação
+# 📌 Criar solicitação
 @router.post("/solicitacoes")
 async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(get_db)):
     try:
