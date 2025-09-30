@@ -127,12 +127,26 @@ async def verificar_clientes_online(client_ids: List[str]) -> List[str]:
     """Verifica quais clientes estão online via WebSocket"""
     clientes_online = []
     for client_id in client_ids:
-        if client_id in conexoes_ativas:
-            clientes_online.append(client_id)
+        # Converter para int para verificar na conexoes_ativas
+        try:
+            client_id_int = int(client_id)
+            if client_id_int in conexoes_ativas:
+                clientes_online.append(client_id)
+        except ValueError:
+            # Se não conseguir converter, pular
+            continue
     return clientes_online
 
 
 # Endpoints
+
+@router.get("/clientes-online")
+async def listar_clientes_online():
+    """Lista clientes conectados via WebSocket"""
+    return {
+        "clientes_conectados": list(conexoes_ativas.keys()),
+        "total_conectados": len(conexoes_ativas)
+    }
 
 @router.post("/solicitacoes/batch", response_model=BatchResponse, status_code=201)
 async def criar_solicitacao_lote(
