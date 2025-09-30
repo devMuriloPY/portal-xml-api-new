@@ -3,6 +3,7 @@ uvicorn
 sqlalchemy
 asyncpg
 psycopg2-binary
+httpx
 python-dotenv
 passlib[bcrypt]
 python-jose[cryptography]

@@ -528,3 +528,5 @@ async def deletar_solicitacao(payload: ExclusaoSolicitacao, db: AsyncSession = D
     await db.commit()
 
     return {"status": "Solicitação deletada com sucesso", "id_solicitacao": id_solicitacao}
+
+

@@ -7,18 +7,21 @@ from contextlib import asynccontextmanager
 # Carregar variáveis de ambiente do .env
 load_dotenv()
 
-from app.routes import auth, websocket, feedback
+from app.routes import auth, websocket, feedback, batch
 from app.utils.retry_service import retry_service
+from app.services.batch_processor import batch_processor
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Iniciar o sistema de retry quando a aplicação iniciar
+    # Iniciar os serviços quando a aplicação iniciar
     await retry_service.start()
+    await batch_processor.start()
     
     yield
     
-    # Parar o sistema de retry quando a aplicação parar
+    # Parar os serviços quando a aplicação parar
     await retry_service.stop()
+    await batch_processor.stop()
 
 app = FastAPI(title="API Portal XML", lifespan=lifespan)
 
@@ -34,6 +37,7 @@ app.add_middleware(
 # Incluir rotas HTTP
 app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
+app.include_router(batch.router, prefix="/auth", tags=["Solicitações em Lote"])
 
 # Incluir rotas WebSocket
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
