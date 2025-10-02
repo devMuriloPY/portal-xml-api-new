@@ -467,7 +467,20 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
         )
         xml_data = xml.fetchone()
 
-        data_solicitacao = s.data_solicitacao.isoformat()
+        # Converter para fuso horário de Brasília
+        if s.data_solicitacao:
+            # Se o datetime não tem timezone, assumir que é UTC e converter para Brasília
+            if s.data_solicitacao.tzinfo is None:
+                # Adicionar timezone UTC e converter para Brasília
+                data_utc = s.data_solicitacao.replace(tzinfo=ZoneInfo("UTC"))
+                data_brasilia = data_utc.astimezone(ZoneInfo("America/Sao_Paulo"))
+                data_solicitacao = data_brasilia.isoformat()
+            else:
+                # Se já tem timezone, converter para Brasília
+                data_brasilia = s.data_solicitacao.astimezone(ZoneInfo("America/Sao_Paulo"))
+                data_solicitacao = data_brasilia.isoformat()
+        else:
+            data_solicitacao = None
 
         # Verificar se xml_data existe antes de acessar os índices
         if xml_data and xml_data[1] > agora:
