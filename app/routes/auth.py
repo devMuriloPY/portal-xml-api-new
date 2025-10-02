@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, and_
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -439,11 +439,22 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(
 # 📌 Listar solicitações
 @router.get("/solicitacoes/{id_cliente}")
 async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db)):
+    # Calcular limite de 24 horas atrás no fuso horário de Brasília
+    agora_brasilia = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    limite_24h_brasilia = agora_brasilia - timedelta(hours=24)
+    
+    # Converter para UTC para comparar com o banco (assumindo que o banco armazena em UTC)
+    limite_24h_utc = limite_24h_brasilia.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    
     result = await db.execute(
-        select(Solicitacao).where(Solicitacao.id_cliente == id_cliente).order_by(Solicitacao.data_solicitacao.desc())
+        select(Solicitacao).where(
+            and_(
+                Solicitacao.id_cliente == id_cliente,
+                Solicitacao.data_solicitacao >= limite_24h_utc
+            )
+        ).order_by(Solicitacao.data_solicitacao.desc())
     )
     solicitacoes = result.scalars().all()
-    agora = datetime.utcnow()
     resposta = []
 
     for s in solicitacoes:
@@ -483,7 +494,8 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
             data_solicitacao = None
 
         # Verificar se xml_data existe antes de acessar os índices
-        if xml_data and xml_data[1] > agora:
+        agora_utc = datetime.utcnow()
+        if xml_data and xml_data[1] > agora_utc:
             status = "concluido"
             xml_url = xml_data[0]
             valor_nfe_autorizadas = xml_data[2]
