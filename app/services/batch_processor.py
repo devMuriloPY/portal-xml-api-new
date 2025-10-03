@@ -148,9 +148,12 @@ class BatchProcessor:
             # Converter client_id para int
             client_id = int(item.client_id)
             
-            # Criar solicitação individual usando a lógica existente
+            # Criar solicitação individual usando a lógica existente (igual ao auth.py)
             data_inicio_api = batch.data_inicio + timedelta(days=1)
             data_fim_api = batch.data_fim + timedelta(days=1)
+            
+            data_inicio = batch.data_inicio
+            data_fim = batch.data_fim
             
             nova_solicitacao = Solicitacao(
                 id_cliente=client_id,
