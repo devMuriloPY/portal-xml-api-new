@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 from app.db.database import Base
 
 def agora_brasil():
-    """Retorna datetime atual no fuso horário de Brasília"""
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    """Retorna datetime atual no fuso horário de Brasília (sem timezone)"""
+    return datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
 
 class BatchRequest(Base):
     __tablename__ = "batch_requests"
