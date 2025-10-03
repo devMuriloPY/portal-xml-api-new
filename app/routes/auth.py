@@ -382,12 +382,22 @@ async def redefinir_senha(dados: PasswordReset, request: Request, db: AsyncSessi
 
 # 📌 Atualizar status da solicitação (chamado pelo desktop)
 @router.put("/solicitacoes/status")
-async def atualizar_status_solicitacao(dados: AtualizarStatusSolicitacao, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Solicitacao).where(Solicitacao.id_solicitacao == dados.id_solicitacao))
-    solicitacao = result.scalars().first()
+async def atualizar_status_solicitacao(dados: AtualizarStatusSolicitacao, contador: Contador = Depends(obter_contador_logado), db: AsyncSession = Depends(get_db)):
+    # Buscar solicitação e verificar se pertence ao contador
+    result = await db.execute(
+        select(Solicitacao, Cliente).join(Cliente).where(
+            and_(
+                Solicitacao.id_solicitacao == dados.id_solicitacao,
+                Cliente.id_contador == contador.id_contador
+            )
+        )
+    )
+    row = result.first()
     
-    if not solicitacao:
-        raise HTTPException(status_code=404, detail="Solicitação não encontrada")
+    if not row:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada ou não autorizada")
+    
+    solicitacao, cliente = row
     
     solicitacao.status = dados.novo_status
     await db.commit()
@@ -396,8 +406,22 @@ async def atualizar_status_solicitacao(dados: AtualizarStatusSolicitacao, db: As
 
 # 📌 Criar solicitação
 @router.post("/solicitacoes")
-async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(get_db)):
+async def criar_solicitacao(dados: CriarSolicitacao, contador: Contador = Depends(obter_contador_logado), db: AsyncSession = Depends(get_db)):
     try:
+        # Verificar se o cliente pertence ao contador
+        cliente_result = await db.execute(
+            select(Cliente).where(
+                and_(
+                    Cliente.id_cliente == dados.id_cliente,
+                    Cliente.id_contador == contador.id_contador
+                )
+            )
+        )
+        cliente = cliente_result.scalars().first()
+        
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado ou não autorizado")
+        
         # Converte as datas para datetime.date (já são offset-naive)
         data_inicio_api = converter_data_segura(dados.data_inicio) + timedelta(days=1)
         data_fim_api = converter_data_segura(dados.data_fim) + timedelta(days=1)
@@ -437,7 +461,21 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(
 
 # 📌 Listar solicitações
 @router.get("/solicitacoes/{id_cliente}")
-async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db)):
+async def listar_solicitacoes(id_cliente: int, contador: Contador = Depends(obter_contador_logado), db: AsyncSession = Depends(get_db)):
+    # Verificar se o cliente pertence ao contador logado
+    cliente_result = await db.execute(
+        select(Cliente).where(
+            and_(
+                Cliente.id_cliente == id_cliente,
+                Cliente.id_contador == contador.id_contador
+            )
+        )
+    )
+    cliente = cliente_result.scalars().first()
+    
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado ou não autorizado")
+    
     # Calcular limite de 24 horas atrás no fuso horário de Brasília
     agora_brasilia = datetime.now(ZoneInfo("America/Sao_Paulo"))
     limite_24h_brasilia = agora_brasilia - timedelta(hours=24)
@@ -538,14 +576,24 @@ async def listar_solicitacoes(id_cliente: int, db: AsyncSession = Depends(get_db
 
 # 📌 Excluir solicitação
 @router.delete("/solicitacoes")
-async def deletar_solicitacao(payload: ExclusaoSolicitacao, db: AsyncSession = Depends(get_db)):
+async def deletar_solicitacao(payload: ExclusaoSolicitacao, contador: Contador = Depends(obter_contador_logado), db: AsyncSession = Depends(get_db)):
     id_solicitacao = payload.id_solicitacao
 
-    result = await db.execute(select(Solicitacao).where(Solicitacao.id_solicitacao == id_solicitacao))
-    solicitacao = result.scalars().first()
+    # Buscar solicitação e verificar se pertence ao contador
+    result = await db.execute(
+        select(Solicitacao, Cliente).join(Cliente).where(
+            and_(
+                Solicitacao.id_solicitacao == id_solicitacao,
+                Cliente.id_contador == contador.id_contador
+            )
+        )
+    )
+    row = result.first()
 
-    if not solicitacao:
-        raise HTTPException(status_code=404, detail="Solicitação não encontrada")
+    if not row:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada ou não autorizada")
+    
+    solicitacao, cliente = row
 
     await db.execute(text("DELETE FROM xmls WHERE id_solicitacao = :id"), {"id": id_solicitacao})
     await db.delete(solicitacao)
