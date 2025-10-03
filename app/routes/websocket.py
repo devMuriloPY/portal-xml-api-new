@@ -15,14 +15,11 @@ class Mensagem(BaseModel):
 async def websocket_endpoint(websocket: WebSocket, id_cliente: int):
     await websocket.accept()
     conexoes_ativas[id_cliente] = websocket
-    print(f"✅ Cliente {id_cliente} conectado.")
 
     try:
         while True:
             message = await websocket.receive_text()
-            print(f"📩 Mensagem recebida do cliente {id_cliente}: {message}")
     except WebSocketDisconnect:
-        print(f"❌ Cliente {id_cliente} desconectado.")
         conexoes_ativas.pop(id_cliente, None)
 
 @router.post("/enviar-mensagem")

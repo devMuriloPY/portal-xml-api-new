@@ -16,7 +16,6 @@ class RetryService:
         if not self.is_running:
             self.is_running = True
             self.task = asyncio.create_task(self._retry_loop())
-            print("🚀 Sistema de retry iniciado")
     
     async def stop(self):
         """Para o sistema de retry"""
@@ -28,7 +27,6 @@ class RetryService:
                     await self.task
                 except asyncio.CancelledError:
                     pass
-            print("🛑 Sistema de retry parado")
     
     async def _retry_loop(self):
         """Loop principal do sistema de retry"""
@@ -36,8 +34,7 @@ class RetryService:
             try:
                 await self._process_pending_requests()
             except Exception as e:
-                print(f"Erro no sistema de retry: {e}")
-            
+                pass  # Log error if needed
             await asyncio.sleep(10)  # Aguardar 10 segundos
     
     async def _process_pending_requests(self):
@@ -74,9 +71,7 @@ class RetryService:
                     "id_solicitacao": solicitacao.id_solicitacao,
                     "retry": True
                 })
-                print(f"�� Retry enviado para solicitação {solicitacao.id_solicitacao}")
             except Exception as e:
-                print(f"❌ Erro ao enviar retry para solicitação {solicitacao.id_solicitacao}: {e}")
                 await self._increment_retry_count(solicitacao, db)
         else:
             # Cliente não conectado, incrementar tentativas
@@ -90,7 +85,6 @@ class RetryService:
         
         if solicitacao.tentativas >= 3:
             solicitacao.status = "sem_conexao"
-            print(f"❌ Solicitação {solicitacao.id_solicitacao} marcada como 'sem_conexao'")
         
         await db.commit()
 

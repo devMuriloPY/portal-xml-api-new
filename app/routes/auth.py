@@ -433,7 +433,6 @@ async def criar_solicitacao(dados: CriarSolicitacao, db: AsyncSession = Depends(
         }
     except SQLAlchemyError as e:
         await db.rollback()
-        print(f"Erro ao criar solicitação: {e}")
         raise HTTPException(status_code=500, detail="Erro ao criar solicitação")
 
 # 📌 Listar solicitações

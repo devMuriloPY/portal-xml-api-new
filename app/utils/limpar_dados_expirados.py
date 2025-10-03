@@ -7,7 +7,6 @@ from sqlalchemy import select, delete
 def limpar_dados_expirados():
     db = SessionLocal()
     try:
-        print("🧹 Iniciando limpeza com base no campo `expiracao`...")
         agora = datetime.now(timezone.utc)
 
         # 1️⃣ Buscar os ID das solicitações cujos XMLs expiraram
@@ -30,12 +29,9 @@ def limpar_dados_expirados():
 
         db.commit()
 
-        print(f"✅ Limpeza concluída.")
-        print(f"📦 {deletadas_xmls} XMLs apagados")
-        print(f"📝 {deletadas_solicitacoes} solicitações apagadas (baseadas nos XMLs expirados)")
 
     except Exception as e:
-        print(f"❌ Erro ao limpar dados expirados: {e}")
+        db.rollback()
     finally:
         db.close()
 

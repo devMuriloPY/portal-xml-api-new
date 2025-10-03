@@ -25,10 +25,9 @@ def enviar_email(destinatario: str, assunto: str, corpo: str):
             server.login(remetente, senha)
             server.sendmail(remetente, destinatario, msg.as_string())
 
-        print(f"✅ E-mail enviado para {destinatario}")
 
     except Exception as e:
-        print(f"❌ Erro ao enviar e-mail: {str(e)}")
+        raise  # Re-raise the exception to maintain error handling
 
 
 def renderizar_template_email(nome_arquivo: str, contexto: dict) -> str:
