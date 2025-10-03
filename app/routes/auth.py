@@ -422,17 +422,14 @@ async def criar_solicitacao(dados: CriarSolicitacao, contador: Contador = Depend
         if not cliente:
             raise HTTPException(status_code=404, detail="Cliente não encontrado ou não autorizado")
         
-        # Converte as datas para datetime.date (já são offset-naive)
-        data_inicio_api = converter_data_segura(dados.data_inicio) + timedelta(days=1)
-        data_fim_api = converter_data_segura(dados.data_fim) + timedelta(days=1)
-        
+        # Converte as datas para datetime.date
         data_inicio = converter_data_segura(dados.data_inicio)
         data_fim = converter_data_segura(dados.data_fim)
         # Cria a solicitação com data_solicitacao offset-naive
         nova = Solicitacao(
             id_cliente=dados.id_cliente,
-            data_inicio=data_inicio_api,
-            data_fim=data_fim_api,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
             status="pendente",
             data_solicitacao=agora_brasil()  # Agora retorna um datetime sem fuso horário
         )
