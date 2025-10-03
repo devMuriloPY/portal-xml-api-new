@@ -1,5 +1,7 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from pydantic import BaseModel
+from app.routes.auth import obter_contador_logado
+from app.models.contador import Contador
 
 router = APIRouter()  # ✅ Definição correta do router
 
@@ -32,5 +34,5 @@ async def enviar_mensagem(mensagem: Mensagem):
         return {"status": "Cliente não conectado"}
 
 @router.get("/clientes-conectados")
-async def listar_clientes_conectados():
+async def listar_clientes_conectados(contador: Contador = Depends(obter_contador_logado)):
     return {"clientes_conectados": list(conexoes_ativas.keys())} if conexoes_ativas else {"mensagem": "Nenhum cliente conectado."}

@@ -141,7 +141,7 @@ async def verificar_clientes_online(client_ids: List[str]) -> List[str]:
 # Endpoints
 
 @router.get("/clientes-online")
-async def listar_clientes_online():
+async def listar_clientes_online(contador: Contador = Depends(obter_contador_logado)):
     """Lista clientes conectados via WebSocket"""
     return {
         "clientes_conectados": list(conexoes_ativas.keys()),
