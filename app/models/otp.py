@@ -1,6 +1,12 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from app.db.database import Base
+
+def agora_brasil():
+    """Retorna datetime atual no fuso horário de Brasília"""
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 class OTP(Base):
     __tablename__ = "otps"
@@ -12,4 +18,4 @@ class OTP(Base):
     max_attempts = Column(Integer, default=5)  # Máximo de tentativas
     expires_at = Column(DateTime, nullable=False)  # Data de expiração
     used = Column(Boolean, default=False)  # Se foi usado
-    created_at = Column(DateTime, default=func.now())  # Data de criação
+    created_at = Column(DateTime, default=agora_brasil)  # Data de criação

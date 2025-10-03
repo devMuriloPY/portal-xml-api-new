@@ -1,6 +1,12 @@
-from sqlalchemy import Column, String, Integer, Date, TIMESTAMP, ForeignKey, CheckConstraint
+from sqlalchemy import Column, String, Integer, Date, TIMESTAMP, ForeignKey, CheckConstraint, func
 from sqlalchemy.orm import relationship
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from app.db.database import Base
+
+def agora_brasil():
+    """Retorna datetime atual no fuso horário de Brasília"""
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 class BatchRequest(Base):
     __tablename__ = "batch_requests"
@@ -15,8 +21,8 @@ class BatchRequest(Base):
     failed_requests = Column(Integer, default=0)
     data_inicio = Column(Date, nullable=False)
     data_fim = Column(Date, nullable=False)
-    created_at = Column(TIMESTAMP, server_default="CURRENT_TIMESTAMP")
-    updated_at = Column(TIMESTAMP, server_default="CURRENT_TIMESTAMP")
+    created_at = Column(TIMESTAMP, default=agora_brasil)
+    updated_at = Column(TIMESTAMP, default=agora_brasil, onupdate=agora_brasil)
     completed_at = Column(TIMESTAMP, nullable=True)
 
     # Relacionamento com os itens do lote
@@ -43,8 +49,8 @@ class BatchRequestItem(Base):
                    server_default="pending")
     xml_url = Column(String, nullable=True)
     error_message = Column(String, nullable=True)
-    created_at = Column(TIMESTAMP, server_default="CURRENT_TIMESTAMP")
-    updated_at = Column(TIMESTAMP, server_default="CURRENT_TIMESTAMP")
+    created_at = Column(TIMESTAMP, default=agora_brasil)
+    updated_at = Column(TIMESTAMP, default=agora_brasil, onupdate=agora_brasil)
     completed_at = Column(TIMESTAMP, nullable=True)
 
     # Relacionamento com o lote
