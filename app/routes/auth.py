@@ -147,7 +147,7 @@ async def login(dados: LoginSchema, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Senha incorreta")
 
     token = jwt.encode(
-        {"sub": contador.cnpj, "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
+        {"sub": contador.cnpj, "exp": agora_brasil() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
         SECRET_KEY,
         algorithm=ALGORITHM
     )
@@ -240,7 +240,7 @@ async def solicitar_otp(dados: OTPRequest, request: Request, db: AsyncSession = 
         otp_hash = hash_otp(otp_code)
         
         # Expiração em 15 minutos
-        expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+        expires_at = agora_brasil() + timedelta(minutes=OTP_EXPIRE_MINUTES)
         
         # Cria registro OTP
         otp_record = OTP(
@@ -283,7 +283,7 @@ async def verificar_otp_endpoint(dados: OTPVerify, request: Request, db: AsyncSe
         select(OTP).where(
             OTP.identifier == identifier,
             OTP.used == False,
-            OTP.expires_at > datetime.utcnow()
+            OTP.expires_at > agora_brasil()
         ).order_by(OTP.created_at.desc())
     )
     otp_record = result.scalars().first()
@@ -315,7 +315,7 @@ async def verificar_otp_endpoint(dados: OTPVerify, request: Request, db: AsyncSe
         otp_record.used = True
         
         # Gera reset token (10 minutos, single-use)
-        expires_at = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        expires_at = agora_brasil() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
         reset_token = jwt.encode({
             "sub": contador.email,
             "exp": expires_at,
@@ -528,8 +528,8 @@ async def listar_solicitacoes(id_cliente: int, contador: Contador = Depends(obte
             data_solicitacao = None
 
         # Verificar se xml_data existe antes de acessar os índices
-        agora_utc = datetime.utcnow()
-        if xml_data and xml_data[1] > agora_utc:
+        agora_brasil_time = agora_brasil()
+        if xml_data and xml_data[1] > agora_brasil_time:
             status = "concluido"
             xml_url = xml_data[0]
             valor_nfe_autorizadas = xml_data[2]
