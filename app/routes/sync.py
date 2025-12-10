@@ -26,7 +26,6 @@ router = APIRouter()
 class SincronizarClienteRequest(BaseModel):
     nome: str
     telefone: Optional[str] = None
-    celular: Optional[str] = None
     email: Optional[str] = None
     cnpj: str
     contador_cnpj: str
@@ -51,7 +50,6 @@ class ClienteResponse(BaseModel):
     id_cliente: int
     nome: Optional[str]
     telefone: Optional[str]
-    celular: Optional[str]
     email: Optional[str]
     cnpj: str
     id_contador: int
@@ -177,7 +175,6 @@ async def sincronizar_cliente(
             cliente = Cliente(
                 nome=dados.nome,
                 telefone=dados.telefone,
-                celular=dados.celular,
                 email=dados.email,
                 cnpj=dados.cnpj,
                 id_contador=contador.id_contador
@@ -190,7 +187,6 @@ async def sincronizar_cliente(
             # Atualizar cliente existente
             cliente.nome = dados.nome
             cliente.telefone = dados.telefone
-            cliente.celular = dados.celular
             cliente.email = dados.email
             cliente.id_contador = contador.id_contador
             await db.commit()
@@ -260,7 +256,6 @@ async def buscar_cliente_por_cnpj(
                     "id_cliente": cliente.id_cliente,
                     "nome": cliente.nome,
                     "telefone": cliente.telefone,
-                    "celular": cliente.celular,
                     "email": cliente.email,
                     "cnpj": cliente.cnpj,
                     "id_contador": cliente.id_contador
@@ -307,7 +302,6 @@ async def buscar_cliente_por_id(
                     "id_cliente": cliente.id_cliente,
                     "nome": cliente.nome,
                     "telefone": cliente.telefone,
-                    "celular": cliente.celular,
                     "email": cliente.email,
                     "cnpj": cliente.cnpj,
                     "id_contador": cliente.id_contador
