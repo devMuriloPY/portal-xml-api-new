@@ -60,7 +60,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next):
         # Aplicar rate limiting apenas para endpoints de lote
-        if request.url.path.startswith("/api/auth/solicitacoes/batch"):
+        if request.url.path.startswith("/auth/solicitacoes/batch"):
             # Obter identificador do usuário
             user_id = self._get_user_identifier(request)
             
