@@ -43,9 +43,9 @@ app.add_middleware(
 )
 
 # Incluir rotas HTTP
-app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
-app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
-app.include_router(batch.router, prefix="/auth", tags=["Solicitações em Lote"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
+app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
+app.include_router(batch.router, prefix="/api/auth", tags=["Solicitações em Lote"])
 app.include_router(sync.router, prefix="/api", tags=["Sincronização"])
 
 # Incluir rotas WebSocket
