@@ -9,4 +9,5 @@ class Cliente(Base):
     cnpj = Column(String, unique=True, index=True)  # 🔍 CNPJ Mantém a Máscara
     email = Column(String, unique=True)
     telefone = Column(String)
+    celular = Column(String)
     id_contador = Column(Integer, ForeignKey("contadores.id_contador"))

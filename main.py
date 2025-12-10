@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 # Carregar variáveis de ambiente do .env
 load_dotenv()
 
-from app.routes import auth, websocket, feedback, batch
+from app.routes import auth, websocket, feedback, batch, sync
 from app.utils.retry_service import retry_service
 from app.services.batch_processor import batch_processor
 
@@ -23,7 +23,15 @@ async def lifespan(app: FastAPI):
     await retry_service.stop()
     await batch_processor.stop()
 
-app = FastAPI(title="API Portal XML", lifespan=lifespan)
+app = FastAPI(
+    title="API Portal XML",
+    description="API para gerenciamento de XMLs e sincronização de dados",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",  # Documentação Swagger UI
+    redoc_url="/redoc",  # Documentação ReDoc
+    openapi_url="/openapi.json"  # Esquema OpenAPI JSON
+)
 
 # 🔥 Habilitar CORS para permitir requisições do frontend
 app.add_middleware(
@@ -38,6 +46,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
 app.include_router(batch.router, prefix="/auth", tags=["Solicitações em Lote"])
+app.include_router(sync.router, prefix="/api", tags=["Sincronização"])
 
 # Incluir rotas WebSocket
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
