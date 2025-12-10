@@ -43,10 +43,12 @@ app.add_middleware(
 )
 
 # Incluir rotas HTTP
+# NOTA: Se houver proxy reverso adicionando /api, os prefixos abaixo são sem /api
 app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
 app.include_router(batch.router, prefix="/auth", tags=["Solicitações em Lote"])
-app.include_router(sync.router, prefix="/api", tags=["Sincronização"])
+# Router de sincronização sem prefix /api para evitar duplicação se houver proxy
+app.include_router(sync.router, prefix="", tags=["Sincronização"])
 
 # Incluir rotas WebSocket
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
