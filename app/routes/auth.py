@@ -32,7 +32,7 @@ RESET_TOKEN_EXPIRE_MINUTES = 10
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://www.portalxml.wmsistemas.inf.br/")
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def agora_brasil():
     # Retorna um datetime sem fuso horário (offset-naive)
