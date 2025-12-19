@@ -51,3 +51,6 @@ app.include_router(sync.router, prefix="/api", tags=["Sincronização"])
 
 # Incluir rotas WebSocket
 app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
+
+# Expor também endpoint HTTP para clientes conectados em /api/ws/clientes-conectados
+app.include_router(websocket.api_router, prefix="/api/ws", tags=["WebSocket"])

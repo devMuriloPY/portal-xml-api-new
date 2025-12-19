@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, and_
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 import os
@@ -35,8 +35,15 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def agora_brasil():
-    # Retorna um datetime sem fuso horário (offset-naive)
-    return datetime.now().replace(tzinfo=None)
+    # Retorna o horário atual do Brasil (America/Sao_Paulo), sem informação de fuso (offset-naive)
+    # Usado apenas para comparar com datas também salvas sem timezone no banco
+    return datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
+
+
+def agora_utc():
+    # Retorna o horário atual em UTC (timezone-aware)
+    # Deve ser usado para geração de tokens JWT com claim "exp"
+    return datetime.now(timezone.utc)
 
 def converter_data_segura(data_str: str) -> datetime.date:
     return datetime.strptime(data_str, "%Y-%m-%d").date()
@@ -146,11 +153,9 @@ async def login(dados: LoginSchema, db: AsyncSession = Depends(get_db)):
     if not verificar_senha(dados.senha, contador.senha_hash):
         raise HTTPException(status_code=401, detail="Senha incorreta")
 
-    token = jwt.encode(
-        {"sub": contador.cnpj, "exp": agora_brasil() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
-        SECRET_KEY,
-        algorithm=ALGORITHM
-    )
+    # Para JWT, usamos sempre horário em UTC (timezone-aware) na claim "exp"
+    expires_at = agora_utc() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    token = jwt.encode({"sub": contador.cnpj, "exp": expires_at}, SECRET_KEY, algorithm=ALGORITHM)
 
     return {"access_token": token, "token_type": "bearer"}
 
@@ -314,8 +319,8 @@ async def verificar_otp_endpoint(dados: OTPVerify, request: Request, db: AsyncSe
         # Marca OTP como usado
         otp_record.used = True
         
-        # Gera reset token (10 minutos, single-use)
-        expires_at = agora_brasil() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        # Gera reset token (10 minutos, single-use) usando horário em UTC
+        expires_at = agora_utc() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
         reset_token = jwt.encode({
             "sub": contador.email,
             "exp": expires_at,

@@ -1,15 +1,21 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from pydantic import BaseModel
 
-router = APIRouter()  # ✅ Definição correta do router
+# Router principal para rotas sob o prefixo /ws
+router = APIRouter()
+
+# Router adicional apenas para expor rotas HTTP sob /api
+api_router = APIRouter()
 
 # Dicionário para armazenar conexões ativas
 conexoes_ativas = {}
+
 
 class Mensagem(BaseModel):
     id_cliente: int
     data_inicio: str
     data_fim: str
+
 
 @router.websocket("/{id_cliente}")
 async def websocket_endpoint(websocket: WebSocket, id_cliente: int):
@@ -22,6 +28,7 @@ async def websocket_endpoint(websocket: WebSocket, id_cliente: int):
     except WebSocketDisconnect:
         conexoes_ativas.pop(id_cliente, None)
 
+
 @router.post("/enviar-mensagem")
 async def enviar_mensagem(mensagem: Mensagem):
     if mensagem.id_cliente in conexoes_ativas:
@@ -31,6 +38,22 @@ async def enviar_mensagem(mensagem: Mensagem):
     else:
         return {"status": "Cliente não conectado"}
 
+
 @router.get("/clientes-conectados")
-async def listar_clientes_conectados():
-    return {"clientes_conectados": list(conexoes_ativas.keys())} if conexoes_ativas else {"mensagem": "Nenhum cliente conectado."}
+async def listar_clientes_conectados_ws():
+    """
+    Versão original sob o prefixo /ws (ex: GET /ws/clientes-conectados)
+    """
+    return {"clientes_conectados": list(conexoes_ativas.keys())} if conexoes_ativas else {
+        "mensagem": "Nenhum cliente conectado."
+    }
+
+
+@api_router.get("/clientes-conectados")
+async def listar_clientes_conectados_api():
+    """
+    Versão HTTP sob o prefixo /api (ex: GET /api/clientes-conectados)
+    """
+    return {"clientes_conectados": list(conexoes_ativas.keys())} if conexoes_ativas else {
+        "mensagem": "Nenhum cliente conectado."
+    }
