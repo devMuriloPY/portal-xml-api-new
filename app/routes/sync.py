@@ -566,6 +566,28 @@ async def inserir_xml_arquivo(
     Registra informações sobre um arquivo XML enviado para o S3.
     """
     try:
+        # Validar tamanho da URL (máximo 1024 caracteres)
+        if len(dados.url_arquivo) > 1024:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "URL do arquivo muito longa (máximo 1024 caracteres)",
+                    "url_length": len(dados.url_arquivo)
+                }
+            )
+        
+        # Validar tamanho do nome do arquivo (máximo 100 caracteres)
+        if len(dados.nome_arquivo) > 100:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Nome do arquivo muito longo (máximo 100 caracteres)",
+                    "nome_length": len(dados.nome_arquivo)
+                }
+            )
+        
         # Validar se o cliente existe
         result_cliente = await db.execute(
             select(Cliente).where(Cliente.id_cliente == dados.id_cliente)
@@ -581,6 +603,21 @@ async def inserir_xml_arquivo(
                 }
             )
 
+        # Validar se a solicitação existe (se fornecida e não for 0)
+        if dados.id_solicitacao and dados.id_solicitacao > 0:
+            result_solicitacao = await db.execute(
+                select(Solicitacao).where(Solicitacao.id_solicitacao == dados.id_solicitacao)
+            )
+            solicitacao = result_solicitacao.scalars().first()
+            if not solicitacao:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "message": f"Solicitação {dados.id_solicitacao} não encontrada"
+                    }
+                )
+
         # Calcular data_envio e expiracao
         # Normalizar datetimes para remover timezone antes de salvar
         if dados.data_envio:
@@ -594,6 +631,9 @@ async def inserir_xml_arquivo(
         else:
             # Calcular expiração baseada em data_envio (ambos sem timezone)
             expiracao = data_envio + timedelta(hours=24) if data_envio else None
+        
+        # Converter id_solicitacao: se for 0, usar None
+        id_solicitacao = dados.id_solicitacao if dados.id_solicitacao and dados.id_solicitacao > 0 else None
 
         # Criar registro XML
         novo_xml = XML(
@@ -602,7 +642,7 @@ async def inserir_xml_arquivo(
             url_arquivo=dados.url_arquivo,
             data_envio=data_envio,
             expiracao=expiracao,
-            id_solicitacao=dados.id_solicitacao,
+            id_solicitacao=id_solicitacao,
             valor_nfe_autorizadas=dados.valor_nfe_autorizadas,
             valor_nfe_canceladas=dados.valor_nfe_canceladas,
             valor_nfc_autorizadas=dados.valor_nfc_autorizadas,
@@ -648,6 +688,26 @@ async def inserir_xml_arquivo(
                 "message": "Erro ao registrar arquivo XML",
                 "error": str(e)
             }
+        )
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        import os
+        # Em desenvolvimento, mostrar traceback completo
+        # Em produção, mostrar apenas mensagem de erro
+        is_debug = os.getenv("DEBUG", "false").lower() == "true"
+        error_response = {
+            "success": False,
+            "message": "Erro ao registrar arquivo XML",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+        if is_debug:
+            error_response["traceback"] = traceback.format_exc()
+        
+        return JSONResponse(
+            status_code=500,
+            content=error_response
         )
 
 
