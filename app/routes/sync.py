@@ -803,13 +803,14 @@ async def buscar_xmls_por_cliente(
 
 # ==================== ENDPOINTS DE SOLICITAÇÕES ====================
 
-@router.put("/auth/solicitacoes/status")
+@router.put("/solicitacoes/status")
 async def atualizar_status_solicitacao(
     dados: AtualizarStatusSolicitacaoRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Atualiza o status de uma solicitação de processamento de XML.
+    Endpoint de sincronização - não requer autenticação.
     """
     try:
         # Buscar solicitação
