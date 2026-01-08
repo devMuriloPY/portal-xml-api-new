@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, Field, validator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import re
 
@@ -14,6 +14,24 @@ from app.models.cliente import Cliente
 from app.models.xmls import XML
 from app.models.solicitacao import Solicitacao
 from app.utils.cnpj_mask import formatar_cnpj, limpar_cnpj
+
+
+def normalizar_datetime(dt: Optional[datetime]) -> Optional[datetime]:
+    """
+    Converte datetime com timezone (timezone-aware) para datetime sem timezone (naive).
+    Aceita ISO-8601 com Z (UTC) e converte para datetime sem timezone.
+    """
+    if dt is None:
+        return None
+    
+    # Se já é naive (sem timezone), retorna como está
+    if dt.tzinfo is None:
+        return dt
+    
+    # Se tem timezone, converte para UTC e remove o timezone
+    # Isso garante que o valor armazenado seja consistente
+    dt_utc = dt.astimezone(timezone.utc)
+    return dt_utc.replace(tzinfo=None), limpar_cnpj
 
 # Router para endpoints de sincronização
 # NOTA: Estas rotas NÃO requerem autenticação, pois são usadas pelo sincronizador
@@ -564,11 +582,18 @@ async def inserir_xml_arquivo(
             )
 
         # Calcular data_envio e expiracao
-        data_envio = dados.data_envio or datetime.now()
-        if dados.expiracao:
-            expiracao = dados.expiracao
+        # Normalizar datetimes para remover timezone antes de salvar
+        if dados.data_envio:
+            data_envio = normalizar_datetime(dados.data_envio)
         else:
-            expiracao = data_envio + timedelta(hours=24)
+            # Se não foi fornecido, usar datetime atual sem timezone
+            data_envio = datetime.now()
+        
+        if dados.expiracao:
+            expiracao = normalizar_datetime(dados.expiracao)
+        else:
+            # Calcular expiração baseada em data_envio (ambos sem timezone)
+            expiracao = data_envio + timedelta(hours=24) if data_envio else None
 
         # Criar registro XML
         novo_xml = XML(
