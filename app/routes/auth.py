@@ -534,7 +534,15 @@ async def listar_solicitacoes(id_cliente: int, contador: Contador = Depends(obte
 
         # Verificar se xml_data existe antes de acessar os índices
         agora_brasil_time = agora_brasil()
-        if xml_data and xml_data[1] > agora_brasil_time:
+        # Normalizar expiracao para offset-naive antes de comparar
+        expiracao = None
+        if xml_data and xml_data[1]:
+            expiracao = xml_data[1]
+            # Se expiracao tem timezone, remover para comparar com agora_brasil_time (offset-naive)
+            if expiracao.tzinfo is not None:
+                expiracao = expiracao.replace(tzinfo=None)
+        
+        if xml_data and expiracao and expiracao > agora_brasil_time:
             status = "concluido"
             xml_url = xml_data[0]
             valor_nfe_autorizadas = xml_data[2]
