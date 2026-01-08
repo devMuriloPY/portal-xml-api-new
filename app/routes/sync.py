@@ -107,7 +107,14 @@ class InserirXMLRequest(BaseModel):
     id_solicitacao: Optional[int] = None
     data_envio: Optional[datetime] = None
     expiracao: Optional[datetime] = None
-
+    valor_nfe_autorizadas: Optional[float] = None
+    valor_nfe_canceladas: Optional[float] = None
+    valor_nfc_autorizadas: Optional[float] = None
+    valor_nfc_canceladas: Optional[float] = None
+    quantidade_nfe_autorizadas: Optional[int] = None
+    quantidade_nfe_canceladas: Optional[int] = None
+    quantidade_nfc_autorizadas: Optional[int] = None
+    quantidade_nfc_canceladas: Optional[int] = None
 
 class XMLResponse(BaseModel):
     id_xml: int
@@ -570,7 +577,15 @@ async def inserir_xml_arquivo(
             url_arquivo=dados.url_arquivo,
             data_envio=data_envio,
             expiracao=expiracao,
-            id_solicitacao=dados.id_solicitacao
+            id_solicitacao=dados.id_solicitacao,
+            valor_nfe_autorizadas=dados.valor_nfe_autorizadas,
+            valor_nfe_canceladas=dados.valor_nfe_canceladas,
+            valor_nfc_autorizadas=dados.valor_nfc_autorizadas,
+            valor_nfc_canceladas=dados.valor_nfc_canceladas,
+            quantidade_nfe_autorizadas=dados.quantidade_nfe_autorizadas,
+            quantidade_nfe_canceladas=dados.quantidade_nfe_canceladas,
+            quantidade_nfc_autorizadas=dados.quantidade_nfc_autorizadas,
+            quantidade_nfc_canceladas=dados.quantidade_nfc_canceladas
         )
         db.add(novo_xml)
         await db.commit()
@@ -586,7 +601,15 @@ async def inserir_xml_arquivo(
                     "id_cliente": novo_xml.id_cliente,
                     "nome_arquivo": novo_xml.nome_arquivo,
                     "data_envio": novo_xml.data_envio.isoformat() if novo_xml.data_envio else None,
-                    "expiracao": novo_xml.expiracao.isoformat() if novo_xml.expiracao else None
+                    "expiracao": novo_xml.expiracao.isoformat() if novo_xml.expiracao else None,
+                    "valor_nfe_autorizadas": novo_xml.valor_nfe_autorizadas,
+                    "valor_nfe_canceladas": novo_xml.valor_nfe_canceladas,
+                    "valor_nfc_autorizadas": novo_xml.valor_nfc_autorizadas,
+                    "valor_nfc_canceladas": novo_xml.valor_nfc_canceladas,
+                    "quantidade_nfe_autorizadas": novo_xml.quantidade_nfe_autorizadas,
+                    "quantidade_nfe_canceladas": novo_xml.quantidade_nfe_canceladas,
+                    "quantidade_nfc_autorizadas": novo_xml.quantidade_nfc_autorizadas,
+                    "quantidade_nfc_canceladas": novo_xml.quantidade_nfc_canceladas
                 }
             }
         )
