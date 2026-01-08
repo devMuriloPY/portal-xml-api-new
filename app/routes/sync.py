@@ -31,7 +31,7 @@ def normalizar_datetime(dt: Optional[datetime]) -> Optional[datetime]:
     # Se tem timezone, converte para UTC e remove o timezone
     # Isso garante que o valor armazenado seja consistente
     dt_utc = dt.astimezone(timezone.utc)
-    return dt_utc.replace(tzinfo=None), limpar_cnpj
+    return dt_utc.replace(tzinfo=None)
 
 # Router para endpoints de sincronização
 # NOTA: Estas rotas NÃO requerem autenticação, pois são usadas pelo sincronizador
