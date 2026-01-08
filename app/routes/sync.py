@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, Field, validator
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
+from decimal import Decimal
 import re
 
 from app.db.database import get_db
@@ -32,6 +33,18 @@ def normalizar_datetime(dt: Optional[datetime]) -> Optional[datetime]:
     # Isso garante que o valor armazenado seja consistente
     dt_utc = dt.astimezone(timezone.utc)
     return dt_utc.replace(tzinfo=None)
+
+
+def decimal_to_float(value):
+    """
+    Converte valores Decimal para float para serialização JSON.
+    Retorna None se o valor for None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
 
 # Router para endpoints de sincronização
 # NOTA: Estas rotas NÃO requerem autenticação, pois são usadas pelo sincronizador
@@ -667,10 +680,10 @@ async def inserir_xml_arquivo(
                     "nome_arquivo": novo_xml.nome_arquivo,
                     "data_envio": novo_xml.data_envio.isoformat() if novo_xml.data_envio else None,
                     "expiracao": novo_xml.expiracao.isoformat() if novo_xml.expiracao else None,
-                    "valor_nfe_autorizadas": novo_xml.valor_nfe_autorizadas,
-                    "valor_nfe_canceladas": novo_xml.valor_nfe_canceladas,
-                    "valor_nfc_autorizadas": novo_xml.valor_nfc_autorizadas,
-                    "valor_nfc_canceladas": novo_xml.valor_nfc_canceladas,
+                    "valor_nfe_autorizadas": decimal_to_float(novo_xml.valor_nfe_autorizadas),
+                    "valor_nfe_canceladas": decimal_to_float(novo_xml.valor_nfe_canceladas),
+                    "valor_nfc_autorizadas": decimal_to_float(novo_xml.valor_nfc_autorizadas),
+                    "valor_nfc_canceladas": decimal_to_float(novo_xml.valor_nfc_canceladas),
                     "quantidade_nfe_autorizadas": novo_xml.quantidade_nfe_autorizadas,
                     "quantidade_nfe_canceladas": novo_xml.quantidade_nfe_canceladas,
                     "quantidade_nfc_autorizadas": novo_xml.quantidade_nfc_autorizadas,
